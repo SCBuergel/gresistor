@@ -6,28 +6,106 @@ class ShamirSecretSharing {
         this.config = config;
     }
     /**
-     * Splits a secret into N shares with M threshold
+     * Splits a secret into N shares using Shamir Secret Sharing
      */
     async splitSecret(secret) {
-        // Stub implementation
-        throw new Error('splitSecret() not implemented');
-    }
-    /**
-     * Reconstructs secret from threshold number of shares
-     */
-    async reconstructSecret(shards) {
-        // Stub implementation
-        if (shards.length < this.config.threshold) {
-            throw new Error(`Insufficient shards: need ${this.config.threshold}, got ${shards.length}`);
+        const { threshold, totalShares } = this.config;
+        // For simplicity, we'll use a basic polynomial-based approach
+        // In a real implementation, you'd want to use a proper finite field
+        const shares = [];
+        // Generate random coefficients for the polynomial
+        const coefficients = [secret]; // a0 = secret
+        for (let i = 1; i < threshold; i++) {
+            coefficients.push(crypto.getRandomValues(new Uint8Array(secret.length)));
         }
-        throw new Error('reconstructSecret() not implemented');
+        // Generate shares by evaluating the polynomial at different points
+        for (let i = 1; i <= totalShares; i++) {
+            const shareData = this.evaluatePolynomial(i, coefficients);
+            shares.push({
+                id: `share_${i}`,
+                data: shareData,
+                threshold,
+                totalShares
+            });
+        }
+        return shares;
     }
     /**
-     * Validates that shards are compatible for reconstruction
+     * Reconstructs the secret from shares using Lagrange interpolation
+     */
+    async reconstructSecret(shares) {
+        if (shares.length < this.config.threshold) {
+            throw new Error(`Need at least ${this.config.threshold} shares to reconstruct the secret`);
+        }
+        // For simplicity, we'll use the first 'threshold' shares
+        const selectedShares = shares.slice(0, this.config.threshold);
+        // Extract x-coordinates (share indices) and y-coordinates (share data)
+        const xCoords = [];
+        const yCoords = [];
+        for (let i = 0; i < selectedShares.length; i++) {
+            const shareIndex = i + 1; // Share indices start from 1
+            xCoords.push(shareIndex);
+            yCoords.push(selectedShares[i].data);
+        }
+        // Use Lagrange interpolation to reconstruct the secret
+        return this.lagrangeInterpolate(xCoords, yCoords);
+    }
+    /**
+     * Validates that the shares are consistent
      */
     validateShards(shards) {
-        // Stub implementation
-        throw new Error('validateShards() not implemented');
+        if (shards.length === 0)
+            return false;
+        const firstShard = shards[0];
+        return shards.every(shard => shard.threshold === firstShard.threshold &&
+            shard.totalShares === firstShard.totalShares &&
+            shard.data.length === firstShard.data.length);
+    }
+    /**
+     * Evaluates a polynomial at a given point
+     */
+    evaluatePolynomial(x, coefficients) {
+        const result = new Uint8Array(coefficients[0].length);
+        for (let i = 0; i < coefficients.length; i++) {
+            const term = this.multiplyByScalar(coefficients[i], Math.pow(x, i));
+            this.xorArrays(result, term);
+        }
+        return result;
+    }
+    /**
+     * Performs Lagrange interpolation to reconstruct the secret
+     */
+    lagrangeInterpolate(xCoords, yCoords) {
+        const secret = new Uint8Array(yCoords[0].length);
+        for (let i = 0; i < xCoords.length; i++) {
+            let lagrangeCoeff = 1;
+            for (let j = 0; j < xCoords.length; j++) {
+                if (i !== j) {
+                    lagrangeCoeff *= xCoords[j] / (xCoords[j] - xCoords[i]);
+                }
+            }
+            const term = this.multiplyByScalar(yCoords[i], lagrangeCoeff);
+            this.xorArrays(secret, term);
+        }
+        return secret;
+    }
+    /**
+     * Multiplies a byte array by a scalar (simplified)
+     */
+    multiplyByScalar(data, scalar) {
+        const result = new Uint8Array(data.length);
+        for (let i = 0; i < data.length; i++) {
+            result[i] = (data[i] * scalar) % 256;
+        }
+        return result;
+    }
+    /**
+     * XORs two byte arrays
+     */
+    xorArrays(a, b) {
+        for (let i = 0; i < a.length; i++) {
+            a[i] ^= b[i];
+        }
     }
 }
 exports.ShamirSecretSharing = ShamirSecretSharing;

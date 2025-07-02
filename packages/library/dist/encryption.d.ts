@@ -3,7 +3,7 @@ export declare class EncryptionService {
     private config;
     constructor(config?: EncryptionConfig);
     /**
-     * Encrypts data using AES-256-GCM with random 96-bit nonce
+     * Encrypts data using AES-256-GCM
      */
     encrypt(data: Uint8Array, key: Uint8Array): Promise<{
         ciphertext: Uint8Array;
@@ -17,7 +17,7 @@ export declare class EncryptionService {
     /**
      * Generates a random encryption key
      */
-    generateKey(): Uint8Array;
+    generateKey(): Promise<Uint8Array>;
     /**
      * Generates a random 96-bit nonce
      */

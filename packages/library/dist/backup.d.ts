@@ -25,5 +25,9 @@ export declare class BackupService {
      * Validates backup integrity
      */
     validateBackup(backupResult: BackupResult): Promise<boolean>;
+    /**
+     * Generates a hash for data
+     */
+    private generateHash;
 }
 //# sourceMappingURL=backup.d.ts.map
