@@ -1,73 +1,135 @@
-# Resilient Backup System
+# 🛡️ Resilient Backup System
 
-A resilient backup system for wallet profile data using Shamir Secret Sharing and multiple storage backends.
+A robust, decentralized backup system for wallet profile data using **Shamir Secret Sharing** and multiple storage backends.
 
-**🚀 Live Demo:** [https://scbuergel.github.io/gresistor/](https://scbuergel.github.io/gresistor/)
+> **🚀 Live Demo:** [https://scbuergel.github.io/gresistor/](https://scbuergel.github.io/gresistor/)
 
 *Last updated: January 2025*
 
-## Features
+---
 
-- **Shamir Secret Sharing**: Split sensitive data into multiple shares using configurable threshold schemes
-- **Multiple Storage Backends**: Support for local browser storage, IPFS, and remote services
-- **Safe Wallet Integration**: Backup and restore Safe wallet configurations and transaction data
-- **End-to-End Encryption**: Client-side encryption ensures data privacy
-- **Browser-First Design**: Works entirely in the browser with no server dependencies required
+## ✨ Features
 
-## Architecture
+- 🔐 **Shamir Secret Sharing** - Split sensitive data into multiple shares with configurable threshold schemes
+- 🌐 **Multiple Storage Backends** - Support for local browser storage, IPFS, and remote services  
+- 🔒 **Safe Wallet Integration** - Backup and restore Safe wallet configurations and transaction data
+- 🛡️ **End-to-End Encryption** - Client-side encryption ensures complete data privacy
+- 🌍 **Browser-First Design** - Works entirely in the browser with no server dependencies required
+- ⚡ **Zero-Trust Architecture** - Your keys never leave your device unencrypted
 
-This project is organized as a monorepo with the following packages:
+---
 
-- `packages/library/`: Core TypeScript library with backup/restore logic
-- `packages/ui/`: React-based user interface
-- `services/key-backup/`: Optional Express.js backend service for remote key storage
+## 🏗️ Architecture
 
-## Getting Started
+This project is organized as a **monorepo** with the following packages:
+
+```
+📦 resilient-backup/
+├── 📚 packages/library/     # Core TypeScript library with backup/restore logic
+├── 🎨 packages/ui/          # React-based user interface  
+└── 🚀 services/key-backup/  # Optional Express.js backend for remote key storage
+```
+
+---
+
+## 🚀 Quick Start
 
 ### Prerequisites
 
-- Node.js 18+
-- pnpm 8+
+- **Node.js** 18+ 
+- **pnpm** 8+
 
 ### Installation
 
 ```bash
+# Clone the repository
+git clone https://github.com/SCBuergel/gresistor.git
+cd gresistor
+
+# Install dependencies
 pnpm install
 ```
 
 ### Development
 
 ```bash
+# Start all services
 pnpm dev
 ```
 
-This starts:
-- UI development server on `http://localhost:3000`
-- Backend service on `http://localhost:3001` (optional)
+This launches:
+- 🎨 **UI Server** → `http://localhost:3000`
+- 🚀 **Backend Service** → `http://localhost:3001` *(optional)*
 
 ### Production Build
 
 ```bash
+# Build for production
 pnpm run deploy
 ```
 
-## Usage
+---
 
-1. **Configure Storage**: Set up your preferred storage backends in the Config tab
-2. **Create Backup**: Enter your data and configure Shamir sharing parameters
-3. **Generate Shares**: The system splits your data into encrypted shares
-4. **Distribute Shares**: Store shares across different services/locations
-5. **Restore Data**: Collect required threshold of shares to reconstruct your data
+## 📖 How It Works
 
-## License
+### 1. **🔧 Configure Storage**
+Set up your preferred storage backends in the **Config** tab
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+### 2. **💾 Create Backup** 
+Enter your sensitive data and configure Shamir sharing parameters
 
-The project's aim is to provide a general-purpose, resilient backup system while immediately covering the concrete need to safeguard wallet profile data. Each profile is encrypted locally with AES-256-GCM, the encryption key is split with Shamir secret sharing, and both the ciphertext and the key shards are uploaded through a plain HTTP API to user-selected storage back ends such as Swarm or IPFS. Optional privacy routing via Tor or HOPR can be enabled but is not required by default.
+### 3. **✂️ Generate Shares**
+The system splits your data into encrypted shares using cryptographic algorithms
 
-Three core services make this work. First, a TypeScript library handles encryption, key splitting, upload, recovery, and Safe-signature generation or verification. Second, a reference React UI consumes that library so users can choose N-of-M parameters, storage targets, and run backup or restore, while the interface prompts for Safe signatures whenever a shard is requested. Third, a lightweight key-backup service validates off-chain EIP-712 messages signed by the user's Gnosis Safe (checked with EIP-1271), then encrypts the requested shard to the caller's supplied public key and returns it.
+### 4. **🌍 Distribute Shares**
+Store shares across different services and locations for maximum resilience
 
-A local test harness completes the picture: it spins up the UI, multiple dockerised storage nodes that mimic Swarm or IPFS APIs, and one instance of the key-backup service, allowing any developer to exercise a full M-of-N backup and restore cycle on a laptop with no external dependencies.
+### 5. **🔄 Restore Data**
+Collect the required threshold of shares to reconstruct your original data
+
+---
+
+## 🔒 Security Features
+
+- **AES-256-GCM Encryption** - Industry-standard encryption for your data
+- **Shamir Secret Sharing** - Mathematically proven threshold cryptography
+- **EIP-712 Signatures** - Safe wallet signature validation
+- **EIP-1271 Support** - Smart contract signature verification
+- **Optional Privacy Routing** - Tor/HOPR integration available
+
+---
+
+## 🛠️ Technology Stack
+
+- **Frontend**: React + TypeScript + Vite
+- **Backend**: Express.js + Node.js  
+- **Crypto**: Web Crypto API + Shamir Secret Sharing
+- **Storage**: IndexedDB, IPFS, Swarm
+- **Build**: pnpm workspaces + GitHub Actions
+
+---
+
+## 📄 License
+
+This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
+
+---
+
+## 🎯 Project Vision
+
+The project's aim is to provide a **general-purpose, resilient backup system** while immediately covering the concrete need to safeguard wallet profile data. Each profile is encrypted locally with **AES-256-GCM**, the encryption key is split with **Shamir secret sharing**, and both the ciphertext and the key shards are uploaded through a plain HTTP API to user-selected storage backends such as **Swarm** or **IPFS**. Optional privacy routing via **Tor** or **HOPR** can be enabled but is not required by default.
+
+### 🏗️ Core Architecture
+
+Three core services make this work:
+
+1. **📚 TypeScript Library** - Handles encryption, key splitting, upload, recovery, and Safe-signature generation/verification
+2. **🎨 React UI** - Consumes the library allowing users to choose N-of-M parameters, storage targets, and run backup/restore operations
+3. **🚀 Key-Backup Service** - Validates off-chain EIP-712 messages signed by Gnosis Safe, encrypts requested shards, and returns them securely
+
+### 🧪 Development Environment
+
+A **local test harness** completes the picture: it spins up the UI, multiple dockerized storage nodes that mimic Swarm or IPFS APIs, and one instance of the key-backup service, allowing any developer to exercise a full **M-of-N backup and restore cycle** on a laptop with no external dependencies.
 
 Implementation axes and selectable options
 
