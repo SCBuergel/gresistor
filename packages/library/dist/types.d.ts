@@ -43,7 +43,7 @@ export interface SafeConfig {
 }
 export interface BackupResult {
     encryptedBlobHash: string;
-    shardHashes: string[];
+    shardIds: string[];
     metadata: {
         timestamp: Date;
         config: ShamirConfig;
@@ -51,7 +51,7 @@ export interface BackupResult {
 }
 export interface RestoreRequest {
     encryptedBlobHash: string;
-    shardHashes: string[];
+    shardIds: string[];
     requiredShards: number;
     safeSignature?: string;
 }

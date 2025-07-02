@@ -4,18 +4,28 @@ A robust, decentralized backup system for wallet profile data using **Shamir Sec
 
 > **🚀 Live Demo:** [https://scbuergel.github.io/gresistor/](https://scbuergel.github.io/gresistor/)
 
-*Last updated: January 2025*
+*Last updated: July 2025*
 
 ---
 
 ## ✨ Features
 
-- 🔐 **Shamir Secret Sharing** - Split sensitive data into multiple shares with configurable threshold schemes
-- 🌐 **Multiple Storage Backends** - Support for local browser storage, IPFS, and remote services  
-- 🔒 **Safe Wallet Integration** - Backup and restore Safe wallet configurations and transaction data
-- 🛡️ **End-to-End Encryption** - Client-side encryption ensures complete data privacy
-- 🌍 **Browser-First Design** - Works entirely in the browser with no server dependencies required
+### ✅ **Implemented**
+- 🔐 **Shamir Secret Sharing** - Split sensitive data into configurable N-of-M threshold schemes
+- 🏠 **Local Browser Storage** - Full support for IndexedDB-based storage with multiple service management
+- 🔒 **AES-256-GCM Encryption** - Client-side encryption ensures complete data privacy
+- 🌍 **Browser-First Design** - Works entirely in the browser with no server dependencies
 - ⚡ **Zero-Trust Architecture** - Your keys never leave your device unencrypted
+- 🎨 **React UI** - Complete user interface for backup, restore, and configuration
+- 📚 **TypeScript Library** - Full core library with backup/restore logic
+
+### 🚧 **Planned / In Development**
+- 🌐 **Remote Storage Backends** - IPFS and Swarm integration *(API stubs ready)*
+- 🛡️ **Safe Wallet Integration** - EIP-712 signature validation and EIP-1271 support *(structure in place)*
+- 🚀 **Remote Key-Backup Service** - Secure shard storage with Safe authentication *(server framework ready)*
+- 🔒 **Privacy Routing** - Tor and HOPR integration for enhanced anonymity
+- 🔧 **Additional Encryption Options** - ChaCha20-Poly1305 and AES-GCM-SIV algorithms
+- 📊 **Advanced Nonce Strategies** - Counter-based and XChaCha20 192-bit nonces
 
 ---
 
@@ -25,10 +35,21 @@ This project is organized as a **monorepo** with the following packages:
 
 ```
 📦 resilient-backup/
-├── 📚 packages/library/     # Core TypeScript library with backup/restore logic
-├── 🎨 packages/ui/          # React-based user interface  
-└── 🚀 services/key-backup/  # Optional Express.js backend for remote key storage
+├── 📚 packages/library/     # ✅ Core TypeScript library (IMPLEMENTED)
+├── 🎨 packages/ui/          # ✅ React-based user interface (IMPLEMENTED)
+└── 🚀 services/key-backup/  # 🚧 Express.js backend for remote storage (PLANNED)
 ```
+
+### Current Implementation Status
+
+| Component | Status | Description |
+|-----------|--------|-------------|
+| **Core Library** | ✅ Complete | Encryption, Shamir sharing, local storage |
+| **React UI** | ✅ Complete | Backup, restore, and configuration interfaces |
+| **Local Storage** | ✅ Complete | IndexedDB with multi-service management |
+| **Remote Storage** | 🚧 API Only | Swarm/IPFS interfaces defined but not implemented |
+| **Safe Integration** | 🚧 Stubs | EIP-712/EIP-1271 structure in place |
+| **Key-Backup Service** | 🚧 Framework | Express server with route stubs |
 
 ---
 
@@ -58,8 +79,8 @@ pnpm dev
 ```
 
 This launches:
-- 🎨 **UI Server** → `http://localhost:3000`
-- 🚀 **Backend Service** → `http://localhost:3001` *(optional)*
+- 🎨 **UI Server** → `http://localhost:3000` *(fully functional)*
+- 🚀 **Backend Service** → `http://localhost:3001` *(framework only)*
 
 ### Production Build
 
@@ -72,40 +93,81 @@ pnpm run deploy
 
 ## 📖 How It Works
 
-### 1. **🔧 Configure Storage**
-Set up your preferred storage backends in the **Config** tab
+### Current Workflow (Local Storage)
 
-### 2. **💾 Create Backup** 
-Enter your sensitive data and configure Shamir sharing parameters
+1. **🔧 Configure Storage** - Set up local browser storage services in the Config tab
+2. **💾 Create Backup** - Enter your sensitive data and configure N-of-M parameters  
+3. **✂️ Generate Shares** - System splits data using AES-256-GCM + Shamir Secret Sharing
+4. **🏠 Store Locally** - Shards distributed across multiple IndexedDB services
+5. **🔄 Restore Data** - Collect required threshold of shards to reconstruct original data
 
-### 3. **✂️ Generate Shares**
-The system splits your data into encrypted shares using cryptographic algorithms
+### Planned Workflow (Remote Storage)
 
-### 4. **🌍 Distribute Shares**
-Store shares across different services and locations for maximum resilience
-
-### 5. **🔄 Restore Data**
-Collect the required threshold of shares to reconstruct your original data
-
----
-
-## 🔒 Security Features
-
-- **AES-256-GCM Encryption** - Industry-standard encryption for your data
-- **Shamir Secret Sharing** - Mathematically proven threshold cryptography
-- **EIP-712 Signatures** - Safe wallet signature validation
-- **EIP-1271 Support** - Smart contract signature verification
-- **Optional Privacy Routing** - Tor/HOPR integration available
+1. **🌍 Configure Backends** - Choose from IPFS, Swarm, or remote key services
+2. **🛡️ Safe Authentication** - Sign EIP-712 messages for secure shard requests
+3. **📤 Distributed Storage** - Upload encrypted blob and shards to different services
+4. **🔐 Secure Retrieval** - Authenticate with Safe to retrieve and reconstruct data
 
 ---
 
 ## 🛠️ Technology Stack
 
+### ✅ **Currently Used**
 - **Frontend**: React + TypeScript + Vite
-- **Backend**: Express.js + Node.js  
-- **Crypto**: Web Crypto API + Shamir Secret Sharing
-- **Storage**: IndexedDB, IPFS, Swarm
-- **Build**: pnpm workspaces + GitHub Actions
+- **Crypto**: Web Crypto API + shamirs-secret-sharing
+- **Storage**: IndexedDB (browser-native)
+- **Build**: pnpm workspaces
+
+### 🚧 **Planned Integration**
+- **Backend**: Express.js + Node.js
+- **Remote Storage**: IPFS, Swarm APIs  
+- **Blockchain**: Safe SDK, EIP-712/EIP-1271
+- **Privacy**: Tor SOCKS proxy, HOPR mixnet
+- **CI/CD**: GitHub Actions
+
+---
+
+## 🔒 Security Model
+
+### Current Implementation
+- **AES-256-GCM** encryption with 96-bit random nonces
+- **Shamir Secret Sharing** with user-configurable N-of-M thresholds
+- **Browser-only execution** - no server-side key handling
+- **Multiple storage services** for redundancy within browser
+
+### Planned Enhancements
+- **EIP-712 signature validation** for shard requests
+- **Safe multisig authentication** via EIP-1271
+- **Transport-layer privacy** via Tor/HOPR routing
+- **Hardware security module** support for enterprise deployments
+
+---
+
+## 🎯 Development Roadmap
+
+### Phase 1: Core Foundation ✅ **COMPLETE**
+- [x] TypeScript library with Shamir sharing
+- [x] AES-256-GCM encryption
+- [x] Local browser storage
+- [x] React UI components
+
+### Phase 2: Remote Storage 🚧 **IN PROGRESS**
+- [ ] IPFS backend implementation
+- [ ] Swarm backend implementation  
+- [ ] Remote service API completion
+- [ ] Integration testing
+
+### Phase 3: Safe Integration 📋 **PLANNED**
+- [ ] EIP-712 message signing
+- [ ] EIP-1271 signature verification
+- [ ] Safe SDK integration
+- [ ] Multi-owner authentication
+
+### Phase 4: Privacy & Enterprise 🔮 **FUTURE**
+- [ ] Tor/HOPR transport layers
+- [ ] Alternative encryption algorithms
+- [ ] Hardware security modules
+- [ ] Enterprise key management
 
 ---
 
@@ -115,64 +177,13 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 
 ---
 
-## 🎯 Project Vision
+## 🤝 Contributing
 
-The project's aim is to provide a **general-purpose, resilient backup system** while immediately covering the concrete need to safeguard wallet profile data. Each profile is encrypted locally with **AES-256-GCM**, the encryption key is split with **Shamir secret sharing**, and both the ciphertext and the key shards are uploaded through a plain HTTP API to user-selected storage backends such as **Swarm** or **IPFS**. Optional privacy routing via **Tor** or **HOPR** can be enabled but is not required by default.
+This project is actively being developed. The core library and UI are functional for local storage use cases. 
 
-### 🏗️ Core Architecture
+**Current priorities:**
+1. Complete IPFS/Swarm storage backend implementations
+2. Implement Safe wallet authentication features  
+3. Build out the remote key-backup service functionality
 
-Three core services make this work:
-
-1. **📚 TypeScript Library** - Handles encryption, key splitting, upload, recovery, and Safe-signature generation/verification
-2. **🎨 React UI** - Consumes the library allowing users to choose N-of-M parameters, storage targets, and run backup/restore operations
-3. **🚀 Key-Backup Service** - Validates off-chain EIP-712 messages signed by Gnosis Safe, encrypts requested shards, and returns them securely
-
-### 🧪 Development Environment
-
-A **local test harness** completes the picture: it spins up the UI, multiple dockerized storage nodes that mimic Swarm or IPFS APIs, and one instance of the key-backup service, allowing any developer to exercise a full **M-of-N backup and restore cycle** on a laptop with no external dependencies.
-
-Implementation axes and selectable options
-
-– Authentication / authorisation of key-share release
-• Safe off-chain REST: EIP-712 message signed by Safe owners, verified by key-backup service with EIP-1271
-• Safe on-chain exchange: service writes the encrypted share to a contract event that only the Safe can decrypt / read
-• Fallback single-device key or password for air-gapped scenarios
-
-– Transport for blob and shard upload / download
-• Plain HTTP (default)
-• HTTP routed through Tor SOCKS proxy
-• HTTP routed through HOPR mixnet
-
-– Key-splitting / recovery scheme
-• Shamir Secret Sharing (N-of-M, default)
-• Simple XOR two-of-two split for very small setups
-
-– Symmetric encryption primitive
-• AES-256-GCM (hardware-accelerated, default)
-• ChaCha20-Poly1305 for CPUs without AES-NI
-• AES-GCM-SIV when nonce-misuse resistance is required
-
-– Nonce strategy
-• Random 96-bit nonce per backup (default)
-• Persistent counter stored alongside profile
-• XChaCha20 192-bit nonce when using the ChaCha suite
-
-– Encrypted blob storage back ends
-• Swarm (recommended for redundancy)
-• IPFS pinning service or self-hosted IPFS node
-• Local filesystem or NAS share for offline tests
-• Generic S3/WebDAV adapter for cloud buckets
-
-– Key-share storage / delivery back ends
-• Same Swarm or IPFS as blob for simplicity
-• Dedicated key-backup REST service with Safe validation
-• Secrets manager such as Hashicorp Vault in enterprise deployments
-
-– Developer workflow options
-• pnpm monorepo with React + Vite example UI (default)
-• CLI-only prototype driven by Node scripts
-• Browser extension front-end if Metri moves to in-tab backups
-
-– Quorum parameters
-• User-chosen N and M at backup time
-• Hard-coded 3-of-5 for quick demos
+See the roadmap above for detailed development phases.

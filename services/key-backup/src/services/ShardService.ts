@@ -11,7 +11,6 @@ export interface ShardRequestData {
 export interface ShardStorageData {
   shardId: string
   encryptedShard: string
-  metadata?: any
 }
 
 export class ShardService {

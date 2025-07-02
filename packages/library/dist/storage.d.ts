@@ -42,13 +42,12 @@ export declare class KeyShareStorageService {
     /**
      * Stores a key shard
      */
-    storeShard(shardId: string, shardData: Uint8Array, metadata?: any): Promise<void>;
+    storeShard(shardId: string, shardData: Uint8Array): Promise<void>;
     /**
      * Retrieves a key shard
      */
     getShard(shardId: string): Promise<{
         data: Uint8Array;
-        metadata?: any;
     }>;
     /**
      * Lists all stored shard IDs

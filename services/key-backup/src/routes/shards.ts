@@ -42,7 +42,7 @@ shardRoutes.post('/request', async (req: Request, res: Response) => {
  */
 shardRoutes.post('/store', async (req: Request, res: Response) => {
   try {
-    const { shardId, encryptedShard, metadata } = req.body
+    const { shardId, encryptedShard } = req.body
 
     if (!shardId || !encryptedShard) {
       return res.status(400).json({
@@ -52,8 +52,7 @@ shardRoutes.post('/store', async (req: Request, res: Response) => {
 
     await shardService.storeShard({
       shardId,
-      encryptedShard,
-      metadata
+      encryptedShard
     })
 
     res.json({

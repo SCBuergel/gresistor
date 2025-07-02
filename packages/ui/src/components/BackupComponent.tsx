@@ -89,7 +89,7 @@ export default function BackupComponent({ shamirConfig, storageBackend, encrypte
       // Step 4: Backup completed
       console.log('✅ [BACKUP] Backup completed successfully!')
       console.log('   📦 Encrypted Blob Hash:', result.encryptedBlobHash)
-      console.log('   🔑 Key Shards Generated:', result.shardHashes.length)
+      console.log('   🔑 Key Shards Generated:', result.shardIds.length)
       console.log('   ⏰ Backup Timestamp:', result.metadata.timestamp.toISOString())
       
       setBackupResult(result)
@@ -160,8 +160,8 @@ export default function BackupComponent({ shamirConfig, storageBackend, encrypte
           <p><strong>Encrypted Blob Hash:</strong> {backupResult.encryptedBlobHash}</p>
           <p><strong>Key Shards:</strong></p>
           <ul>
-            {backupResult.shardHashes.map((hash: string, index: number) => (
-              <li key={index}>Shard {index + 1}: {hash}</li>
+            {backupResult.shardIds.map((id: string, index: number) => (
+              <li key={index}>Shard {index + 1}: {id}</li>
             ))}
           </ul>
           <p><strong>Timestamp:</strong> {backupResult.metadata.timestamp.toISOString()}</p>

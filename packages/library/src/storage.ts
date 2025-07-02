@@ -158,7 +158,7 @@ export class KeyShareStorageService {
   /**
    * Stores a key shard
    */
-  async storeShard(shardId: string, shardData: Uint8Array, metadata?: any): Promise<void> {
+  async storeShard(shardId: string, shardData: Uint8Array): Promise<void> {
     const db = await this.getDB();
     
     return new Promise((resolve, reject) => {
@@ -168,7 +168,6 @@ export class KeyShareStorageService {
       const item = {
         id: shardId,
         data: Array.from(shardData),
-        metadata: metadata || {},
         timestamp: new Date().toISOString()
       };
       
@@ -182,7 +181,7 @@ export class KeyShareStorageService {
   /**
    * Retrieves a key shard
    */
-  async getShard(shardId: string): Promise<{ data: Uint8Array; metadata?: any }> {
+  async getShard(shardId: string): Promise<{ data: Uint8Array }> {
     const db = await this.getDB();
     
     return new Promise((resolve, reject) => {
@@ -193,8 +192,7 @@ export class KeyShareStorageService {
       request.onsuccess = () => {
         if (request.result) {
           resolve({
-            data: new Uint8Array(request.result.data),
-            metadata: request.result.metadata
+            data: new Uint8Array(request.result.data)
           });
         } else {
           reject(new Error(`Shard not found: ${shardId}`));

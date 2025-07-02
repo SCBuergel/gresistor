@@ -9,7 +9,6 @@ export interface ShardRequestData {
 export interface ShardStorageData {
     shardId: string;
     encryptedShard: string;
-    metadata?: any;
 }
 export declare class ShardService {
     private shards;

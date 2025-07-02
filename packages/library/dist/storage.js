@@ -118,7 +118,7 @@ class KeyShareStorageService {
     /**
      * Stores a key shard
      */
-    async storeShard(shardId, shardData, metadata) {
+    async storeShard(shardId, shardData) {
         const db = await this.getDB();
         return new Promise((resolve, reject) => {
             const transaction = db.transaction([this.storeName], 'readwrite');
@@ -126,7 +126,6 @@ class KeyShareStorageService {
             const item = {
                 id: shardId,
                 data: Array.from(shardData),
-                metadata: metadata || {},
                 timestamp: new Date().toISOString()
             };
             const request = store.put(item);
@@ -146,8 +145,7 @@ class KeyShareStorageService {
             request.onsuccess = () => {
                 if (request.result) {
                     resolve({
-                        data: new Uint8Array(request.result.data),
-                        metadata: request.result.metadata
+                        data: new Uint8Array(request.result.data)
                     });
                 }
                 else {

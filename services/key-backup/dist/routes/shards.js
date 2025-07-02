@@ -40,7 +40,7 @@ exports.shardRoutes.post('/request', async (req, res) => {
  */
 exports.shardRoutes.post('/store', async (req, res) => {
     try {
-        const { shardId, encryptedShard, metadata } = req.body;
+        const { shardId, encryptedShard } = req.body;
         if (!shardId || !encryptedShard) {
             return res.status(400).json({
                 error: 'Missing required fields: shardId, encryptedShard'
@@ -48,8 +48,7 @@ exports.shardRoutes.post('/store', async (req, res) => {
         }
         await shardService.storeShard({
             shardId,
-            encryptedShard,
-            metadata
+            encryptedShard
         });
         res.json({
             success: true,
