@@ -13,8 +13,8 @@ function App() {
     totalShares: 5
   })
   const [storageBackend, setStorageBackend] = useState<StorageBackend>({
-    type: 'swarm',
-    endpoint: 'http://localhost:8080'
+    type: 'local-browser',
+    endpoint: ''
   })
   const [encryptedDataStorage, setEncryptedDataStorage] = useState<EncryptedDataStorage>({
     type: 'local-browser'

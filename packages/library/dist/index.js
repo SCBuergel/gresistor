@@ -14,7 +14,7 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
     for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.default = exports.SafeAuthService = exports.StorageService = exports.ShamirSecretSharing = exports.EncryptionService = exports.BackupService = void 0;
+exports.default = exports.SafeAuthService = exports.KeyShareStorageService = exports.KeyShareRegistryService = exports.BrowserStorageService = exports.StorageService = exports.ShamirSecretSharing = exports.EncryptionService = exports.BackupService = void 0;
 // Core services
 var backup_1 = require("./backup");
 Object.defineProperty(exports, "BackupService", { enumerable: true, get: function () { return backup_1.BackupService; } });
@@ -24,6 +24,9 @@ var shamir_1 = require("./shamir");
 Object.defineProperty(exports, "ShamirSecretSharing", { enumerable: true, get: function () { return shamir_1.ShamirSecretSharing; } });
 var storage_1 = require("./storage");
 Object.defineProperty(exports, "StorageService", { enumerable: true, get: function () { return storage_1.StorageService; } });
+Object.defineProperty(exports, "BrowserStorageService", { enumerable: true, get: function () { return storage_1.BrowserStorageService; } });
+Object.defineProperty(exports, "KeyShareRegistryService", { enumerable: true, get: function () { return storage_1.KeyShareRegistryService; } });
+Object.defineProperty(exports, "KeyShareStorageService", { enumerable: true, get: function () { return storage_1.KeyShareStorageService; } });
 var safe_auth_1 = require("./safe-auth");
 Object.defineProperty(exports, "SafeAuthService", { enumerable: true, get: function () { return safe_auth_1.SafeAuthService; } });
 // Types
@@ -31,4 +34,5 @@ __exportStar(require("./types"), exports);
 // Main API
 var backup_2 = require("./backup");
 Object.defineProperty(exports, "default", { enumerable: true, get: function () { return backup_2.BackupService; } });
+// Removed CLI export for browser compatibility 
 //# sourceMappingURL=index.js.map

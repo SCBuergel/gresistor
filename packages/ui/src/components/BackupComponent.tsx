@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { BackupService, BackupProfile, ShamirConfig, StorageBackend, EncryptedDataStorage, SafeConfig } from '@resilient-backup/library'
 
 interface BackupComponentProps {
@@ -14,6 +14,12 @@ export default function BackupComponent({ shamirConfig, storageBackend, encrypte
   const [isLoading, setIsLoading] = useState(false)
   const [status, setStatus] = useState<{ type: 'success' | 'error' | 'info', message: string } | null>(null)
   const [backupResult, setBackupResult] = useState<any>(null)
+
+  // Set default values at page load
+  useEffect(() => {
+    setProfileName('Seb');
+    setProfileData(JSON.stringify({ address: 'scbuergel.eth', timestamp: new Date().toISOString() }, null, 2));
+  }, []);
 
   const handleBackup = async () => {
     if (!profileName || !profileData) {

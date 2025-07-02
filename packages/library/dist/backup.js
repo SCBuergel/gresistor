@@ -7,12 +7,23 @@ const storage_1 = require("./storage");
 const safe_auth_1 = require("./safe-auth");
 class BackupService {
     constructor(shamirConfig, keyShareStorage, encryptedDataStorage, transportConfig, safeConfig) {
+        this.keyShareStorages = new Map();
         this.encryption = new encryption_1.EncryptionService();
         this.shamir = new shamir_1.ShamirSecretSharing(shamirConfig);
         this.storage = new storage_1.StorageService(keyShareStorage, transportConfig);
         // Create appropriate storage service for encrypted data
         if (encryptedDataStorage?.type === 'local-browser') {
-            this.encryptedDataStorage = new storage_1.BrowserStorageService();
+            // Check if we're in a browser environment
+            if (typeof window !== 'undefined' && window.indexedDB) {
+                this.encryptedDataStorage = new storage_1.BrowserStorageService();
+            }
+            else {
+                // Use in-memory storage for Node.js testing
+                this.encryptedDataStorage = new storage_1.InMemoryStorageService();
+            }
+        }
+        else if (encryptedDataStorage?.type === 'memory') {
+            this.encryptedDataStorage = new storage_1.InMemoryStorageService();
         }
         else {
             const encryptedStorageBackend = encryptedDataStorage ? {
@@ -21,6 +32,16 @@ class BackupService {
                 apiKey: encryptedDataStorage.apiKey
             } : { type: 'swarm', endpoint: 'http://localhost:8080' };
             this.encryptedDataStorage = new storage_1.StorageService(encryptedStorageBackend, transportConfig);
+        }
+        // Create appropriate storage service for key shares
+        if (keyShareStorage?.type === 'local-browser') {
+            this.keyShareStorage = new storage_1.KeyShareRegistryService();
+        }
+        else if (keyShareStorage?.type === 'memory') {
+            this.keyShareStorage = new storage_1.InMemoryStorageService();
+        }
+        else {
+            this.keyShareStorage = new storage_1.StorageService(keyShareStorage, transportConfig);
         }
         if (safeConfig) {
             this.safeAuth = new safe_auth_1.SafeAuthService(safeConfig);
@@ -59,14 +80,46 @@ class BackupService {
         // Step 5: Upload encrypted blob to storage
         console.log('   📤 Uploading encrypted blob to storage...');
         const encryptedBlobHash = await this.encryptedDataStorage.upload(encryptedBlob);
-        // Step 6: Store key shards (in a real implementation, these would be encrypted and stored separately)
+        // Step 6: Store key shards
         console.log('   🔐 Storing key shards...');
         const shardHashes = [];
-        for (const shard of keyShards) {
-            // For now, we'll just generate hashes for the shards
-            // In a real implementation, these would be stored in the key backup service
-            const shardHash = await this.generateHash(shard.data);
-            shardHashes.push(shardHash);
+        if (this.keyShareStorage instanceof storage_1.KeyShareRegistryService) {
+            // Store shards in local browser storage services
+            const services = await this.keyShareStorage.listServices();
+            const activeServices = services.filter(s => s.isActive);
+            if (activeServices.length === 0) {
+                throw new Error('No active key share storage services found');
+            }
+            // Distribute shards across active services
+            for (let i = 0; i < keyShards.length; i++) {
+                const shard = keyShards[i];
+                const serviceIndex = i % activeServices.length;
+                const service = activeServices[serviceIndex];
+                // Get or create storage service for this service
+                let storageService = this.keyShareStorages.get(service.id);
+                if (!storageService) {
+                    storageService = new storage_1.KeyShareStorageService(service.id);
+                    this.keyShareStorages.set(service.id, storageService);
+                }
+                // Store the shard
+                const shardId = `shard_${encryptedBlobHash}_${i}`;
+                await storageService.storeShard(shardId, shard.data, {
+                    backupId: encryptedBlobHash,
+                    shardIndex: i,
+                    threshold: shard.threshold,
+                    totalShares: shard.totalShares
+                });
+                // Generate hash for the shard
+                const shardHash = await this.generateHash(shard.data);
+                shardHashes.push(shardHash);
+            }
+        }
+        else {
+            // Store shards in remote storage (stub implementation)
+            for (const shard of keyShards) {
+                const shardHash = await this.generateHash(shard.data);
+                shardHashes.push(shardHash);
+            }
         }
         console.log('   ✅ Backup completed successfully!');
         console.log('   📦 Encrypted Blob Hash:', encryptedBlobHash);
@@ -101,18 +154,107 @@ class BackupService {
         const ciphertext = encryptedBlob.slice(4, 4 + ciphertextLength);
         const nonce = encryptedBlob.slice(4 + ciphertextLength, 4 + ciphertextLength + nonceLength);
         const tag = encryptedBlob.slice(4 + ciphertextLength + nonceLength);
-        // Step 3: Reconstruct key shards from hashes
+        // Step 3: Reconstruct key shards
         console.log('   🔐 Reconstructing key shards...');
-        // For this demo, we'll create mock shards based on the hashes
-        // In a real implementation, you'd fetch the actual shards from the key backup service
-        const mockShards = [];
-        for (let i = 0; i < request.shardHashes.length; i++) {
-            mockShards.push({
-                id: `share_${i + 1}`,
-                data: new TextEncoder().encode(request.shardHashes[i].substring(0, 32)), // Mock data
-                threshold: request.requiredShards,
-                totalShares: request.shardHashes.length
+        let mockShards = [];
+        if (this.keyShareStorage instanceof storage_1.KeyShareRegistryService) {
+            // Try to retrieve shards from local storage services
+            const services = await this.keyShareStorage.listServices();
+            const activeServices = services.filter(s => s.isActive);
+            console.log('   🔍 [RESTORE] Found active key share services:', activeServices.length);
+            activeServices.forEach(service => {
+                console.log(`     - ${service.name} (${service.id})`);
             });
+            if (activeServices.length > 0) {
+                // Check if we're receiving shard IDs (from local storage) or hashes (from manual input)
+                const isShardIds = request.shardHashes.some(hash => hash.includes('shard_'));
+                console.log('   🔍 [RESTORE] Input type:', isShardIds ? 'Shard IDs' : 'Shard Hashes');
+                console.log('   📋 [RESTORE] Input shards:', request.shardHashes);
+                if (isShardIds) {
+                    // We have shard IDs, retrieve the actual shard data
+                    console.log('   🔍 [RESTORE] Retrieving shards by ID...');
+                    for (const shardId of request.shardHashes) {
+                        console.log(`     📥 [RESTORE] Looking for shard: ${shardId}`);
+                        let shardFound = false;
+                        for (const service of activeServices) {
+                            try {
+                                console.log(`       🔍 [RESTORE] Checking service: ${service.name}`);
+                                const storageService = new storage_1.KeyShareStorageService(service.id);
+                                const shardData = await storageService.getShard(shardId);
+                                console.log(`       ✅ [RESTORE] Shard found in ${service.name}:`, {
+                                    id: shardId,
+                                    dataSize: shardData.data.length,
+                                    metadata: shardData.metadata
+                                });
+                                mockShards.push({
+                                    id: shardId,
+                                    data: shardData.data,
+                                    threshold: request.requiredShards,
+                                    totalShares: request.shardHashes.length
+                                });
+                                shardFound = true;
+                                break;
+                            }
+                            catch (error) {
+                                console.log(`       ❌ [RESTORE] Shard not found in ${service.name}:`, error instanceof Error ? error.message : String(error));
+                                // Shard not found in this service, try next
+                                continue;
+                            }
+                        }
+                        if (!shardFound) {
+                            console.error(`   ❌ [RESTORE] Shard ${shardId} not found in any active service`);
+                        }
+                    }
+                }
+                else {
+                    // We have hashes, try to find shards in active services
+                    console.log('   🔍 [RESTORE] Searching for shards by backup hash...');
+                    for (const service of activeServices) {
+                        console.log(`     🔍 [RESTORE] Searching service: ${service.name}`);
+                        const storageService = new storage_1.KeyShareStorageService(service.id);
+                        try {
+                            const shardIds = await storageService.listShardIds();
+                            console.log(`       📦 [RESTORE] Found ${shardIds.length} total shards in service`);
+                            const backupShards = shardIds.filter(id => id.includes(request.encryptedBlobHash));
+                            console.log(`       🎯 [RESTORE] Found ${backupShards.length} shards for backup`);
+                            for (const shardId of backupShards) {
+                                console.log(`       📥 [RESTORE] Loading shard: ${shardId}`);
+                                const shardData = await storageService.getShard(shardId);
+                                console.log(`       ✅ [RESTORE] Shard loaded:`, {
+                                    id: shardId,
+                                    dataSize: shardData.data.length,
+                                    metadata: shardData.metadata
+                                });
+                                mockShards.push({
+                                    id: shardId,
+                                    data: shardData.data,
+                                    threshold: request.requiredShards,
+                                    totalShares: request.shardHashes.length
+                                });
+                            }
+                        }
+                        catch (error) {
+                            console.error(`     ❌ [RESTORE] Failed to access service ${service.id}:`, error);
+                        }
+                    }
+                }
+            }
+        }
+        console.log('   📊 [RESTORE] Total shards collected:', mockShards.length);
+        mockShards.forEach((shard, index) => {
+            console.log(`     ${index + 1}. ${shard.id} (${shard.data.length} bytes)`);
+        });
+        // If no shards found in storage, use mock shards from hashes
+        if (mockShards.length === 0) {
+            console.log('   ⚠️  [RESTORE] No shards found in storage, using mock shards from hashes');
+            for (let i = 0; i < request.shardHashes.length; i++) {
+                mockShards.push({
+                    id: `share_${i + 1}`,
+                    data: new TextEncoder().encode(request.shardHashes[i].substring(0, 32)), // Mock data
+                    threshold: request.requiredShards,
+                    totalShares: request.shardHashes.length
+                });
+            }
         }
         // Step 4: Reconstruct the encryption key
         console.log('   🔑 Reconstructing encryption key using Shamir Secret Sharing...');
@@ -123,7 +265,7 @@ class BackupService {
         // Step 6: Create the restored profile
         console.log('   ✅ Profile restored successfully!');
         return {
-            id: crypto.randomUUID(), // Generate new ID for restored profile
+            id: this.generateUUIDv4(), // Generate new ID for restored profile
             data: decryptedData,
             metadata: {
                 name: 'Restored Profile',
@@ -147,12 +289,35 @@ class BackupService {
         throw new Error('validateBackup() not implemented');
     }
     /**
-     * Generates a hash for data
+     * Generates a hash for data using Web Crypto API
      */
     async generateHash(data) {
         const hashBuffer = await crypto.subtle.digest('SHA-256', data);
         const hashArray = Array.from(new Uint8Array(hashBuffer));
         return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+    /**
+     * Generates a UUID v4 string (browser-compatible)
+     */
+    generateUUIDv4() {
+        if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+            return crypto.randomUUID();
+        }
+        // Polyfill for browsers without crypto.randomUUID
+        const bytes = new Uint8Array(16);
+        (typeof crypto !== 'undefined' && crypto.getRandomValues)
+            ? crypto.getRandomValues(bytes)
+            : Array.from({ length: 16 }, () => Math.floor(Math.random() * 256));
+        // Set version and variant bits
+        bytes[6] = (bytes[6] & 0x0f) | 0x40;
+        bytes[8] = (bytes[8] & 0x3f) | 0x80;
+        return Array.from(bytes).map((b, i) => [4, 6, 8, 10].includes(i) ? '-' + b.toString(16).padStart(2, '0') : b.toString(16).padStart(2, '0')).join('');
+    }
+    /**
+     * Gets the key share registry service (for UI access)
+     */
+    getKeyShareRegistry() {
+        return this.keyShareStorage instanceof storage_1.KeyShareRegistryService ? this.keyShareStorage : null;
     }
 }
 exports.BackupService = BackupService;

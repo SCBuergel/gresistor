@@ -41,28 +41,53 @@ export class EncryptionService {
    * Decrypts data using AES-256-GCM
    */
   async decrypt(ciphertext: Uint8Array, key: Uint8Array, nonce: Uint8Array, tag: Uint8Array): Promise<Uint8Array> {
-    // Import the key
-    const cryptoKey = await crypto.subtle.importKey(
-      'raw',
-      key,
-      { name: 'AES-GCM' },
-      false,
-      ['decrypt']
-    );
+    console.log('🔧 [ENCRYPTION] decrypt() called')
+    console.log('   📊 Input sizes:', {
+      ciphertext: ciphertext.length,
+      key: key.length,
+      nonce: nonce.length,
+      tag: tag.length
+    })
     
-    // Combine ciphertext and tag
-    const encrypted = new Uint8Array(ciphertext.length + tag.length);
-    encrypted.set(ciphertext);
-    encrypted.set(tag, ciphertext.length);
-    
-    // Decrypt the data
-    const decrypted = await crypto.subtle.decrypt(
-      { name: 'AES-GCM', iv: nonce },
-      cryptoKey,
-      encrypted
-    );
-    
-    return new Uint8Array(decrypted);
+    try {
+      // Import the key
+      console.log('   🔑 [ENCRYPTION] Importing crypto key...')
+      const cryptoKey = await crypto.subtle.importKey(
+        'raw',
+        key,
+        { name: 'AES-GCM' },
+        false,
+        ['decrypt']
+      );
+      console.log('   ✅ [ENCRYPTION] Crypto key imported successfully')
+      
+      // Combine ciphertext and tag
+      console.log('   🔗 [ENCRYPTION] Combining ciphertext and tag...')
+      const encrypted = new Uint8Array(ciphertext.length + tag.length);
+      encrypted.set(ciphertext);
+      encrypted.set(tag, ciphertext.length);
+      console.log('   ✅ [ENCRYPTION] Combined encrypted data size:', encrypted.length)
+      
+      // Decrypt the data
+      console.log('   🔓 [ENCRYPTION] Decrypting data with AES-256-GCM...')
+      const decrypted = await crypto.subtle.decrypt(
+        { name: 'AES-GCM', iv: nonce },
+        cryptoKey,
+        encrypted
+      );
+      console.log('   ✅ [ENCRYPTION] Decryption successful')
+      console.log('   📏 Decrypted data size:', decrypted.byteLength)
+      
+      return new Uint8Array(decrypted);
+    } catch (error) {
+      console.error('   ❌ [ENCRYPTION] Decryption failed:', error)
+      console.error('   🔍 Error details:', {
+        message: error instanceof Error ? error.message : String(error),
+        name: error instanceof Error ? error.name : 'Unknown',
+        type: error instanceof Error ? error.constructor.name : typeof error
+      })
+      throw error;
+    }
   }
 
   /**

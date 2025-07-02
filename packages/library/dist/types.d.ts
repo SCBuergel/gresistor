@@ -16,18 +16,25 @@ export interface ShamirConfig {
     totalShares: number;
 }
 export interface StorageBackend {
-    type: 'swarm' | 'ipfs' | 'local';
-    endpoint: string;
-    apiKey?: string;
-}
-export interface EncryptedDataStorage {
-    type: 'swarm' | 'ipfs' | 'local-browser';
+    type: 'swarm' | 'ipfs' | 'local-browser' | 'memory';
     endpoint?: string;
     apiKey?: string;
 }
+export interface EncryptedDataStorage {
+    type: 'swarm' | 'ipfs' | 'local-browser' | 'memory';
+    endpoint?: string;
+    apiKey?: string;
+}
+export interface KeyShareStorage {
+    type: 'swarm' | 'ipfs' | 'local-browser' | 'memory';
+    endpoint?: string;
+    apiKey?: string;
+    selectedServices?: string[];
+}
 export interface TransportConfig {
-    method: 'plain-http' | 'tor-proxy' | 'hopr-mixnet';
-    proxyUrl?: string;
+    method: 'plain-http' | 'https' | 'wss';
+    timeout?: number;
+    retries?: number;
 }
 export interface SafeConfig {
     safeAddress: string;
