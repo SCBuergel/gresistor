@@ -426,102 +426,72 @@ export default function RestoreComponent({ shamirConfig, storageBackend, encrypt
   }
 
   return (
-    <div className="card">
-      <h2>Restore Profile</h2>
+    <div>
+      <h1>Restore Profile</h1>
       <p>Reconstruct your wallet profile from encrypted blob and key shards</p>
       
-      {/* Configuration Summary */}
-      <div style={{ 
-        padding: '1rem', 
-        backgroundColor: '#f8f9fa', 
-        borderRadius: '6px', 
-        marginBottom: '1rem',
-        border: '1px solid #e9ecef'
-      }}>
-        <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1rem', color: '#495057' }}>Current Configuration</h3>
-        <div style={{ fontSize: '0.875rem', color: '#6c757d' }}>
-          <p style={{ margin: '0.25rem 0' }}>
-            <strong>Threshold:</strong> {shamirConfig.threshold} of {shamirConfig.totalShares} shares required
-          </p>
-          <p style={{ margin: '0.25rem 0' }}>
-            <strong>Key Storage:</strong> {storageBackend.type} 
-            {storageBackend.endpoint && ` (${storageBackend.endpoint})`}
-          </p>
-          <p style={{ margin: '0.25rem 0' }}>
-            <strong>Data Storage:</strong> {encryptedDataStorage.type}
-            {encryptedDataStorage.endpoint && ` (${encryptedDataStorage.endpoint})`}
-          </p>
-          {safeConfig.safeAddress && (
-            <p style={{ margin: '0.25rem 0' }}>
-              <strong>Safe:</strong> {safeConfig.safeAddress} (Chain {safeConfig.chainId})
-            </p>
-          )}
-        </div>
-      </div>
+      <h2>Current Configuration</h2>
+      <ul>
+        <li><b>Threshold:</b> {shamirConfig.threshold} of {shamirConfig.totalShares} shares required</li>
+        <li><b>Key Storage:</b> {storageBackend.type} {storageBackend.endpoint && `(${storageBackend.endpoint})`}</li>
+        <li><b>Data Storage:</b> {encryptedDataStorage.type} {encryptedDataStorage.endpoint && `(${encryptedDataStorage.endpoint})`}</li>
+        {safeConfig.safeAddress && (
+          <li><b>Safe:</b> {safeConfig.safeAddress} (Chain {safeConfig.chainId})</li>
+        )}
+      </ul>
       
-      {/* Available Backups Section */}
       {encryptedDataStorage.type === 'local-browser' && (
-        <div className="form-group">
-          <label>Available Encrypted Backups:</label>
+        <div>
+          <h2>Available Encrypted Backups</h2>
           {isLoadingBackups ? (
             <p>Loading available backups...</p>
           ) : availableBackups.length > 0 ? (
-            <div style={{ maxHeight: '200px', overflowY: 'auto', border: '1px solid #d1d5db', borderRadius: '4px', padding: '0.5rem' }}>
-              {availableBackups.map((backup) => (
-                <div 
-                  key={backup.hash}
-                  onClick={() => handleBackupSelect(backup.hash)}
-                  style={{
-                    padding: '0.5rem',
-                    margin: '0.25rem 0',
-                    border: selectedBackup === backup.hash ? '2px solid #3b82f6' : '1px solid #e5e7eb',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    backgroundColor: selectedBackup === backup.hash ? '#eff6ff' : '#f9fafb'
-                  }}
-                >
-                  <div style={{ fontWeight: 'bold', fontSize: '0.875rem' }}>
-                    {backup.hash.substring(0, 16)}...
-                  </div>
-                  <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>
-                    Size: {backup.size} bytes | Created: {backup.timestamp.toLocaleString()}
-                  </div>
-                </div>
-              ))}
+            <div>
+              <table border={1}>
+                <thead>
+                  <tr>
+                    <th>Select</th>
+                    <th>Backup Hash</th>
+                    <th>Size (bytes)</th>
+                    <th>Created</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {availableBackups.map((backup) => (
+                    <tr key={backup.hash}>
+                      <td>
+                        <input
+                          type="radio"
+                          name="backup"
+                          value={backup.hash}
+                          checked={selectedBackup === backup.hash}
+                          onChange={() => handleBackupSelect(backup.hash)}
+                        />
+                      </td>
+                      <td><b>{backup.hash.substring(0, 16)}...</b></td>
+                      <td>{backup.size}</td>
+                      <td>{backup.timestamp.toLocaleString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           ) : (
-            <p style={{ color: '#6b7280', fontStyle: 'italic' }}>No encrypted backups found in local storage</p>
+            <p><i>No encrypted backups found in local storage</i></p>
           )}
-          <button 
-            type="button" 
-            onClick={loadAvailableBackups}
-            className="btn btn-secondary"
-            style={{ marginTop: '0.5rem' }}
-          >
-            Refresh List
-          </button>
+          <button type="button" onClick={loadAvailableBackups}>Refresh List</button>
         </div>
       )}
-      
-      <div className="form-group">
-        <label htmlFor="blobHash">Encrypted Blob Hash:</label>
-        <input
-          id="blobHash"
-          type="text"
-          value={encryptedBlobHash}
-          onChange={(e) => setEncryptedBlobHash(e.target.value)}
-          placeholder="QmHash... or similar"
-        />
-      </div>
 
-      {/* Key Shards Section */}
       {storageBackend.type === 'local-browser' ? (
-        <div className="form-group">
-          <label>All Available Key Shards (select {shamirConfig.threshold} to try restoring):</label>
-                    {isLoadingKeyShards ? (
+        <div>
+          <h2>Key Shard Service List</h2>
+          <p>Select <b>{shamirConfig.threshold}</b> shards from any services to try restoring:</p>
+          
+          {isLoadingKeyShards ? (
             <p>Loading key shards...</p>
           ) : availableKeyShards.length > 0 ? (
-            <div style={{ maxHeight: '400px', overflowY: 'auto', border: '1px solid #d1d5db', borderRadius: '4px', padding: '0.5rem' }}>
+            <div>
               {(() => {
                 // Group shards by service and sort by timestamp within each service
                 const shardsByService = availableKeyShards.reduce((acc, shard) => {
@@ -542,71 +512,49 @@ export default function RestoreComponent({ shamirConfig, storageBackend, encrypt
                 });
 
                 return Object.values(shardsByService).map((service) => (
-                  <div key={service.serviceId} style={{ marginBottom: '1.5rem' }}>
-                    {/* Service Header */}
-                    <div style={{ 
-                      backgroundColor: '#f8f9fa', 
-                      padding: '0.75rem', 
-                      borderRadius: '6px',
-                      border: '1px solid #e9ecef',
-                      marginBottom: '0.5rem'
-                    }}>
-                      <div style={{ fontWeight: 'bold', fontSize: '1rem', color: '#495057' }}>
-                        📦 {service.serviceName}
-                      </div>
-                      <div style={{ fontSize: '0.75rem', color: '#6c757d', marginTop: '0.25rem' }}>
-                        Storage Type: Local Browser IndexedDB | 
-                        Service ID: {service.serviceId.substring(0, 12)}... | 
-                        {service.shards.length} shard{service.shards.length !== 1 ? 's' : ''} available
-                      </div>
-                    </div>
-
-                    {/* Shards for this service */}
-                    <div style={{ marginLeft: '1rem' }}>
-                      {service.shards.map((shard) => (
-                        <div 
-                          key={shard.id}
-                          onClick={() => toggleShardSelection(shard.id)}
-                          style={{
-                            padding: '0.5rem',
-                            margin: '0.25rem 0',
-                            border: shard.isSelected ? '2px solid #10b981' : '1px solid #e5e7eb',
-                            borderRadius: '4px',
-                            cursor: 'pointer',
-                            backgroundColor: shard.isSelected ? '#ecfdf5' : '#f9fafb'
-                          }}
-                        >
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <div>
-                              <div style={{ fontWeight: 'bold', fontSize: '0.875rem' }}>
-                                🔑 Shard {shard.shardIndex + 1}
-                              </div>
-                              <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>
-                                ID: {shard.id}
-                              </div>
-                              <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>
-                                Created: {shard.timestamp.toLocaleString()}
-                              </div>
-                            </div>
-                            <div style={{ 
-                              fontSize: '0.75rem', 
-                              color: shard.isSelected ? '#10b981' : '#6b7280',
-                              fontWeight: shard.isSelected ? 'bold' : 'normal'
-                            }}>
-                              {shard.isSelected ? '✓ Selected' : 'Click to select'}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                  <div key={service.serviceId}>
+                    <table border={1} style={{ marginBottom: '20px' }}>
+                      <thead>
+                        <tr style={{ backgroundColor: '#f0f0f0' }}>
+                          <th colSpan={4}>
+                            <b>{service.serviceName}</b> - Storage Type: Local Browser IndexedDB | 
+                            Service ID: {service.serviceId.substring(0, 12)}... | 
+                            {service.shards.length} shard{service.shards.length !== 1 ? 's' : ''} available
+                          </th>
+                        </tr>
+                        <tr>
+                          <th>Select</th>
+                          <th>Shard</th>
+                          <th>Shard ID</th>
+                          <th>Created</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {service.shards.map((shard) => (
+                          <tr key={shard.id}>
+                            <td>
+                              <input
+                                type="checkbox"
+                                checked={shard.isSelected}
+                                onChange={() => toggleShardSelection(shard.id)}
+                              />
+                            </td>
+                            <td><b>Shard {shard.shardIndex + 1}</b></td>
+                            <td><small>{shard.id}</small></td>
+                            <td><small>{shard.timestamp.toLocaleString()}</small></td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 ));
               })()}
             </div>
           ) : (
-            <p style={{ color: '#6b7280', fontStyle: 'italic' }}>No key shards found in any storage service</p>
+            <p><i>No key shards found in any storage service</i></p>
           )}
-          <div style={{ marginTop: '0.5rem', fontSize: '0.875rem', color: '#6b7280' }}>
+
+          <p>
             {(() => {
               const selectedShards = availableKeyShards.filter(s => s.isSelected);
               const selectedByService = selectedShards.reduce((acc, shard) => {
@@ -620,58 +568,41 @@ export default function RestoreComponent({ shamirConfig, storageBackend, encrypt
                 .join(', ');
 
               return (
-                <div>
-                  <div>Selected: {selectedShards.length} of {shamirConfig.threshold} required for restore attempt</div>
+                <>
+                  <b>Selected: {selectedShards.length} of {shamirConfig.threshold} required for restore attempt</b>
                   {selectedShards.length > 0 && (
-                    <div style={{ fontSize: '0.75rem', marginTop: '0.25rem' }}>
-                      From services: {serviceBreakdown}
-                    </div>
+                    <><br /><small>From services: {serviceBreakdown}</small></>
                   )}
-                </div>
+                </>
               );
             })()}
-          </div>
+          </p>
         </div>
       ) : (
-        <div className="form-group">
-          <label>Key Shard IDs (need {shamirConfig.threshold} of {shamirConfig.totalShares}):</label>
+        <div>
+          <h2>Key Shard IDs</h2>
+          <p>Need {shamirConfig.threshold} of {shamirConfig.totalShares}:</p>
           {shardIds.map((id, index) => (
-            <div key={index} style={{ display: 'flex', marginBottom: '0.5rem' }}>
+            <div key={index}>
               <input
                 type="text"
                 value={id}
                 onChange={(e) => updateShardHash(index, e.target.value)}
                 placeholder={`Shard ${index + 1} ID`}
-                style={{ flex: 1, marginRight: '0.5rem' }}
               />
               {shardIds.length > 1 && (
-                <button 
-                  type="button" 
-                  onClick={() => removeShardField(index)}
-                  className="btn btn-secondary"
-                  style={{ padding: '0.5rem' }}
-                >
-                  Remove
-                </button>
+                <button type="button" onClick={() => removeShardField(index)}>Remove</button>
               )}
             </div>
           ))}
-          <button 
-            type="button" 
-            onClick={addShardField}
-            className="btn btn-secondary"
-            style={{ marginTop: '0.5rem' }}
-          >
-            Add Shard Field
-          </button>
+          <button type="button" onClick={addShardField}>Add Shard Field</button>
         </div>
       )}
 
       {safeConfig.safeAddress && (
-        <div className="form-group">
-          <label htmlFor="safeSignature">Safe Signature (EIP-712):</label>
+        <div>
+          <h2>Safe Signature (EIP-712)</h2>
           <input
-            id="safeSignature"
             type="text"
             value={safeSignature}
             onChange={(e) => setSafeSignature(e.target.value)}
@@ -680,38 +611,38 @@ export default function RestoreComponent({ shamirConfig, storageBackend, encrypt
         </div>
       )}
 
-      <button 
-        className="btn" 
-        onClick={handleRestore} 
-        disabled={
-          isLoading || 
-          !encryptedBlobHash || 
-          (storageBackend.type === 'local-browser' 
-            ? availableKeyShards.filter(s => s.isSelected).length < shamirConfig.threshold
-            : shardIds.filter(h => h.trim()).length < shamirConfig.threshold)
-        }
-      >
-        {isLoading ? 'Restoring...' : 'Restore Profile'}
-      </button>
+      <div>
+        <h2>Restore</h2>
+        <button 
+          onClick={handleRestore} 
+          disabled={
+            isLoading || 
+            (storageBackend.type === 'local-browser' 
+              ? availableKeyShards.filter(s => s.isSelected).length < shamirConfig.threshold
+              : shardIds.filter(h => h.trim()).length < shamirConfig.threshold)
+          }
+        >
+          {isLoading ? 'Restoring...' : 'Restore Profile'}
+        </button>
+      </div>
 
       {status && (
-        <div className={`status ${status.type}`}>
-          {status.message}
+        <div>
+          <h3>{status.type === 'error' ? 'Error' : status.type === 'success' ? 'Success' : 'Info'}</h3>
+          <p>{status.message}</p>
         </div>
       )}
 
       {restoredProfile && (
-        <div className="card" style={{ marginTop: '1rem', textAlign: 'left' }}>
-          <h3>Restored Profile</h3>
-          <p><strong>ID:</strong> {restoredProfile.id}</p>
-          <p><strong>Name:</strong> {restoredProfile.metadata.name}</p>
-          <p><strong>Created:</strong> {restoredProfile.metadata.createdAt.toISOString()}</p>
-          <p><strong>Version:</strong> {restoredProfile.metadata.version}</p>
-          <div style={{ marginTop: '1rem' }}>
-            <strong>Data:</strong>
-            <pre style={{ background: '#f3f4f6', padding: '1rem', borderRadius: '4px', overflow: 'auto' }}>
-              {new TextDecoder().decode(restoredProfile.data)}
-            </pre>
+        <div>
+          <h2>Restored Profile</h2>
+          <p><b>ID:</b> {restoredProfile.id}</p>
+          <p><b>Name:</b> {restoredProfile.metadata.name}</p>
+          <p><b>Created:</b> {restoredProfile.metadata.createdAt.toISOString()}</p>
+          <p><b>Version:</b> {restoredProfile.metadata.version}</p>
+          <div>
+            <h3>Data</h3>
+            <pre>{new TextDecoder().decode(restoredProfile.data)}</pre>
           </div>
         </div>
       )}

@@ -105,14 +105,13 @@ export default function BackupComponent({ shamirConfig, storageBackend, encrypte
   }
 
   return (
-    <div className="card">
-      <h2>Create Backup</h2>
+    <div>
+      <h1>Create Backup</h1>
       <p>Encrypt and split your wallet profile data using Shamir Secret Sharing</p>
       
-      <div className="form-group">
-        <label htmlFor="profileName">Profile Name:</label>
+      <div>
+        <h2>Profile Name</h2>
         <input
-          id="profileName"
           type="text"
           value={profileName}
           onChange={(e) => setProfileName(e.target.value)}
@@ -120,51 +119,57 @@ export default function BackupComponent({ shamirConfig, storageBackend, encrypte
         />
       </div>
 
-      <div className="form-group">
-        <label htmlFor="profileData">Profile Data (JSON):</label>
+      <div>
+        <h2>Profile Data (JSON)</h2>
         <textarea
-          id="profileData"
           value={profileData}
           onChange={(e) => setProfileData(e.target.value)}
           placeholder='{"address": "0x...", "privateKey": "0x...", "metadata": {...}}'
           rows={6}
-          style={{ width: '100%', padding: '0.75rem', border: '1px solid #d1d5db', borderRadius: '6px' }}
+          cols={80}
         />
       </div>
 
-      <div style={{ marginBottom: '1rem' }}>
-        <p><strong>Configuration:</strong></p>
-        <p>Threshold: {shamirConfig.threshold} of {shamirConfig.totalShares} shares required</p>
-        <p>Key Share Storage: {storageBackend.type} ({storageBackend.endpoint})</p>
-        <p>Encrypted Data Storage: {encryptedDataStorage.type} {encryptedDataStorage.endpoint && `(${encryptedDataStorage.endpoint})`}</p>
-        {safeConfig.safeAddress && <p>Safe: {safeConfig.safeAddress}</p>}
+      <div>
+        <h2>Configuration</h2>
+        <ul>
+          <li><b>Threshold:</b> {shamirConfig.threshold} of {shamirConfig.totalShares} shares required</li>
+          <li><b>Key Share Storage:</b> {storageBackend.type} {storageBackend.endpoint && `(${storageBackend.endpoint})`}</li>
+          <li><b>Encrypted Data Storage:</b> {encryptedDataStorage.type} {encryptedDataStorage.endpoint && `(${encryptedDataStorage.endpoint})`}</li>
+          {safeConfig.safeAddress && <li><b>Safe:</b> {safeConfig.safeAddress}</li>}
+        </ul>
       </div>
 
-      <button 
-        className="btn" 
-        onClick={handleBackup} 
-        disabled={isLoading || !profileName || !profileData}
-      >
-        {isLoading ? 'Creating Backup...' : 'Create Backup'}
-      </button>
+      <div>
+        <h2>Create Backup</h2>
+        <button 
+          onClick={handleBackup} 
+          disabled={isLoading || !profileName || !profileData}
+        >
+          {isLoading ? 'Creating Backup...' : 'Create Backup'}
+        </button>
+      </div>
 
       {status && (
-        <div className={`status ${status.type}`}>
-          {status.message}
+        <div>
+          <h3>{status.type === 'error' ? 'Error' : status.type === 'success' ? 'Success' : 'Info'}</h3>
+          <p>{status.message}</p>
         </div>
       )}
 
       {backupResult && (
-        <div className="card" style={{ marginTop: '1rem', textAlign: 'left' }}>
-          <h3>Backup Result</h3>
-          <p><strong>Encrypted Blob Hash:</strong> {backupResult.encryptedBlobHash}</p>
-          <p><strong>Key Shards:</strong></p>
-          <ul>
-            {backupResult.shardIds.map((id: string, index: number) => (
-              <li key={index}>Shard {index + 1}: {id}</li>
-            ))}
-          </ul>
-          <p><strong>Timestamp:</strong> {backupResult.metadata.timestamp.toISOString()}</p>
+        <div>
+          <h2>Backup Result</h2>
+          <p><b>Encrypted Blob Hash:</b> {backupResult.encryptedBlobHash}</p>
+          <div>
+            <h3>Key Shards</h3>
+            <ul>
+              {backupResult.shardIds.map((id: string, index: number) => (
+                <li key={index}>Shard {index + 1}: {id}</li>
+              ))}
+            </ul>
+          </div>
+          <p><b>Timestamp:</b> {backupResult.metadata.timestamp.toISOString()}</p>
         </div>
       )}
     </div>

@@ -26,32 +26,25 @@ function App() {
   })
 
   return (
-    <div className="App">
+    <div>
       <h1>Resilient Backup System</h1>
       <p>Secure wallet profile backup with Shamir Secret Sharing and Safe authentication</p>
       
-      <nav style={{ margin: '2rem 0' }}>
-        <button 
-          className={`btn ${activeTab === 'backup' ? '' : 'btn-secondary'}`}
-          onClick={() => setActiveTab('backup')}
-          style={{ marginRight: '1rem' }}
-        >
-          Backup
+      <nav>
+        <button onClick={() => setActiveTab('backup')}>
+          {activeTab === 'backup' ? <b>Backup</b> : 'Backup'}
         </button>
-        <button 
-          className={`btn ${activeTab === 'restore' ? '' : 'btn-secondary'}`}
-          onClick={() => setActiveTab('restore')}
-          style={{ marginRight: '1rem' }}
-        >
-          Restore
+        {' '}
+        <button onClick={() => setActiveTab('restore')}>
+          {activeTab === 'restore' ? <b>Restore</b> : 'Restore'}
         </button>
-        <button 
-          className={`btn ${activeTab === 'config' ? '' : 'btn-secondary'}`}
-          onClick={() => setActiveTab('config')}
-        >
-          Configuration
+        {' '}
+        <button onClick={() => setActiveTab('config')}>
+          {activeTab === 'config' ? <b>Configuration</b> : 'Configuration'}
         </button>
       </nav>
+
+      <hr />
 
       {activeTab === 'backup' && (
         <BackupComponent 
