@@ -1,10 +1,11 @@
-import { BackupProfile, BackupResult, RestoreRequest, ShamirConfig, StorageBackend, TransportConfig, SafeConfig } from './types';
+import { BackupProfile, BackupResult, RestoreRequest, ShamirConfig, StorageBackend, EncryptedDataStorage, TransportConfig, SafeConfig } from './types';
 export declare class BackupService {
     private encryption;
     private shamir;
     private storage;
+    private encryptedDataStorage;
     private safeAuth?;
-    constructor(shamirConfig: ShamirConfig, storageBackend?: StorageBackend, transportConfig?: TransportConfig, safeConfig?: SafeConfig);
+    constructor(shamirConfig: ShamirConfig, keyShareStorage?: StorageBackend, encryptedDataStorage?: EncryptedDataStorage, transportConfig?: TransportConfig, safeConfig?: SafeConfig);
     /**
      * Backs up a profile with encryption and key splitting
      */

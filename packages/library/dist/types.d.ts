@@ -20,6 +20,11 @@ export interface StorageBackend {
     endpoint: string;
     apiKey?: string;
 }
+export interface EncryptedDataStorage {
+    type: 'swarm' | 'ipfs' | 'local-browser';
+    endpoint?: string;
+    apiKey?: string;
+}
 export interface TransportConfig {
     method: 'plain-http' | 'tor-proxy' | 'hopr-mixnet';
     proxyUrl?: string;

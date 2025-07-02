@@ -2,7 +2,7 @@ import { useState } from 'react'
 import BackupComponent from './components/BackupComponent'
 import RestoreComponent from './components/RestoreComponent'
 import ConfigComponent from './components/ConfigComponent'
-import { ShamirConfig, StorageBackend, SafeConfig } from '@resilient-backup/library'
+import { ShamirConfig, StorageBackend, EncryptedDataStorage, SafeConfig } from '@resilient-backup/library'
 
 type Tab = 'backup' | 'restore' | 'config'
 
@@ -15,6 +15,9 @@ function App() {
   const [storageBackend, setStorageBackend] = useState<StorageBackend>({
     type: 'swarm',
     endpoint: 'http://localhost:8080'
+  })
+  const [encryptedDataStorage, setEncryptedDataStorage] = useState<EncryptedDataStorage>({
+    type: 'local-browser'
   })
   const [safeConfig, setSafeConfig] = useState<SafeConfig>({
     safeAddress: '',
@@ -54,6 +57,7 @@ function App() {
         <BackupComponent 
           shamirConfig={shamirConfig}
           storageBackend={storageBackend}
+          encryptedDataStorage={encryptedDataStorage}
           safeConfig={safeConfig}
         />
       )}
@@ -62,6 +66,7 @@ function App() {
         <RestoreComponent 
           shamirConfig={shamirConfig}
           storageBackend={storageBackend}
+          encryptedDataStorage={encryptedDataStorage}
           safeConfig={safeConfig}
         />
       )}
@@ -72,6 +77,8 @@ function App() {
           setShamirConfig={setShamirConfig}
           storageBackend={storageBackend}
           setStorageBackend={setStorageBackend}
+          encryptedDataStorage={encryptedDataStorage}
+          setEncryptedDataStorage={setEncryptedDataStorage}
           safeConfig={safeConfig}
           setSafeConfig={setSafeConfig}
         />

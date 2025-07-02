@@ -1,13 +1,14 @@
 import { useState } from 'react'
-import { BackupService, BackupProfile, ShamirConfig, StorageBackend, SafeConfig } from '@resilient-backup/library'
+import { BackupService, BackupProfile, ShamirConfig, StorageBackend, EncryptedDataStorage, SafeConfig } from '@resilient-backup/library'
 
 interface BackupComponentProps {
   shamirConfig: ShamirConfig
   storageBackend: StorageBackend
+  encryptedDataStorage: EncryptedDataStorage
   safeConfig: SafeConfig
 }
 
-export default function BackupComponent({ shamirConfig, storageBackend, safeConfig }: BackupComponentProps) {
+export default function BackupComponent({ shamirConfig, storageBackend, encryptedDataStorage, safeConfig }: BackupComponentProps) {
   const [profileName, setProfileName] = useState('')
   const [profileData, setProfileData] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -24,11 +25,44 @@ export default function BackupComponent({ shamirConfig, storageBackend, safeConf
     setStatus({ type: 'info', message: 'Starting backup process...' })
 
     try {
-      const backupService = new BackupService(shamirConfig, storageBackend, undefined, safeConfig)
+      // Step 1: Initialize backup service with configuration
+      console.log('🔧 [BACKUP] Initializing backup service...')
+      console.log('   📊 Shamir Config:', {
+        threshold: shamirConfig.threshold,
+        totalShares: shamirConfig.totalShares,
+        description: `${shamirConfig.threshold}-of-${shamirConfig.totalShares} secret sharing`
+      })
+      console.log('   💾 Key Share Storage:', {
+        type: storageBackend.type,
+        endpoint: storageBackend.endpoint,
+        hasApiKey: !!storageBackend.apiKey
+      })
+      console.log('   📦 Encrypted Data Storage:', {
+        type: encryptedDataStorage.type,
+        endpoint: encryptedDataStorage.endpoint,
+        hasApiKey: !!encryptedDataStorage.apiKey
+      })
+      if (safeConfig.safeAddress) {
+        console.log('   🔐 Safe Authentication:', {
+          address: safeConfig.safeAddress,
+          chainId: safeConfig.chainId,
+          owners: safeConfig.owners.length
+        })
+      }
+      
+      const backupService = new BackupService(shamirConfig, storageBackend, encryptedDataStorage, undefined, safeConfig)
+      
+      // Step 2: Create backup profile
+      console.log('📝 [BACKUP] Creating backup profile...')
+      const profileId = crypto.randomUUID()
+      const profileDataBytes = new TextEncoder().encode(profileData)
+      console.log('   🆔 Profile ID:', profileId)
+      console.log('   📏 Data Size:', `${profileDataBytes.length} bytes`)
+      console.log('   📅 Created:', new Date().toISOString())
       
       const profile: BackupProfile = {
-        id: crypto.randomUUID(),
-        data: new TextEncoder().encode(profileData),
+        id: profileId,
+        data: profileDataBytes,
         metadata: {
           name: profileName,
           createdAt: new Date(),
@@ -36,11 +70,28 @@ export default function BackupComponent({ shamirConfig, storageBackend, safeConf
         }
       }
 
+      // Step 3: Execute backup process
+      console.log('🚀 [BACKUP] Executing backup process...')
+      console.log('   🔒 Encryption: AES-256-GCM with random 96-bit nonce')
+      console.log('   🔑 Key Generation: Cryptographically secure random key')
+      console.log('   ✂️  Key Splitting: Shamir Secret Sharing algorithm')
+      console.log('   📤 Storage: Uploading encrypted blob to', encryptedDataStorage.type)
+      console.log('   🔐 Shard Storage: Encrypting shards for key backup service')
+      
       const result = await backupService.backup(profile)
+      
+      // Step 4: Backup completed
+      console.log('✅ [BACKUP] Backup completed successfully!')
+      console.log('   📦 Encrypted Blob Hash:', result.encryptedBlobHash)
+      console.log('   🔑 Key Shards Generated:', result.shardHashes.length)
+      console.log('   ⏰ Backup Timestamp:', result.metadata.timestamp.toISOString())
+      
       setBackupResult(result)
       setStatus({ type: 'success', message: 'Backup completed successfully!' })
     } catch (error) {
-      console.error('Backup failed:', error)
+      console.error('❌ [BACKUP] Backup failed:', error)
+      console.log('   🔍 Error Type:', error instanceof Error ? error.constructor.name : typeof error)
+      console.log('   📋 Error Message:', error instanceof Error ? error.message : String(error))
       setStatus({ type: 'error', message: `Backup failed: ${error instanceof Error ? error.message : 'Unknown error'}` })
     } finally {
       setIsLoading(false)
@@ -78,7 +129,8 @@ export default function BackupComponent({ shamirConfig, storageBackend, safeConf
       <div style={{ marginBottom: '1rem' }}>
         <p><strong>Configuration:</strong></p>
         <p>Threshold: {shamirConfig.threshold} of {shamirConfig.totalShares} shares required</p>
-        <p>Storage: {storageBackend.type} ({storageBackend.endpoint})</p>
+        <p>Key Share Storage: {storageBackend.type} ({storageBackend.endpoint})</p>
+        <p>Encrypted Data Storage: {encryptedDataStorage.type} {encryptedDataStorage.endpoint && `(${encryptedDataStorage.endpoint})`}</p>
         {safeConfig.safeAddress && <p>Safe: {safeConfig.safeAddress}</p>}
       </div>
 

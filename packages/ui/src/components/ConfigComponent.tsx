@@ -1,10 +1,12 @@
-import { ShamirConfig, StorageBackend, SafeConfig } from '@resilient-backup/library'
+import { ShamirConfig, StorageBackend, EncryptedDataStorage, SafeConfig } from '@resilient-backup/library'
 
 interface ConfigComponentProps {
   shamirConfig: ShamirConfig
   setShamirConfig: (config: ShamirConfig) => void
   storageBackend: StorageBackend
   setStorageBackend: (backend: StorageBackend) => void
+  encryptedDataStorage: EncryptedDataStorage
+  setEncryptedDataStorage: (storage: EncryptedDataStorage) => void
   safeConfig: SafeConfig
   setSafeConfig: (config: SafeConfig) => void
 }
@@ -14,6 +16,8 @@ export default function ConfigComponent({
   setShamirConfig,
   storageBackend,
   setStorageBackend,
+  encryptedDataStorage,
+  setEncryptedDataStorage,
   safeConfig,
   setSafeConfig
 }: ConfigComponentProps) {
@@ -60,8 +64,8 @@ export default function ConfigComponent({
       </div>
 
       <div className="card">
-        <h2>Storage Backend</h2>
-        <p>Configure where encrypted data and shards are stored</p>
+        <h2>Key Share Storage</h2>
+        <p>Configure where key shards are stored (separate from encrypted data)</p>
         
         <div className="form-group">
           <label htmlFor="storageType">Storage Type:</label>
@@ -106,6 +110,68 @@ export default function ConfigComponent({
             placeholder="Your API key"
           />
         </div>
+      </div>
+
+      <div className="card">
+        <h2>Encrypted Data Storage</h2>
+        <p>Configure where encrypted profile data is stored (separate from key shards)</p>
+        
+        <div className="form-group">
+          <label htmlFor="encryptedStorageType">Storage Type:</label>
+          <select
+            id="encryptedStorageType"
+            value={encryptedDataStorage.type}
+            onChange={(e) => setEncryptedDataStorage({
+              ...encryptedDataStorage,
+              type: e.target.value as 'swarm' | 'ipfs' | 'local-browser'
+            })}
+          >
+            <option value="local-browser">Local Browser Storage</option>
+            <option value="swarm">Swarm</option>
+            <option value="ipfs">IPFS</option>
+          </select>
+        </div>
+
+        {encryptedDataStorage.type !== 'local-browser' && (
+          <>
+            <div className="form-group">
+              <label htmlFor="encryptedEndpoint">Endpoint URL:</label>
+              <input
+                id="encryptedEndpoint"
+                type="text"
+                value={encryptedDataStorage.endpoint || ''}
+                onChange={(e) => setEncryptedDataStorage({
+                  ...encryptedDataStorage,
+                  endpoint: e.target.value
+                })}
+                placeholder="http://localhost:8080"
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="encryptedApiKey">API Key (optional):</label>
+              <input
+                id="encryptedApiKey"
+                type="password"
+                value={encryptedDataStorage.apiKey || ''}
+                onChange={(e) => setEncryptedDataStorage({
+                  ...encryptedDataStorage,
+                  apiKey: e.target.value || undefined
+                })}
+                placeholder="Your API key"
+              />
+            </div>
+          </>
+        )}
+
+        {encryptedDataStorage.type === 'local-browser' && (
+          <div style={{ marginTop: '1rem', padding: '1rem', background: '#f3f4f6', borderRadius: '6px' }}>
+            <p style={{ margin: 0, color: '#6b7280' }}>
+              <strong>Local Browser Storage:</strong> Encrypted data will be stored in your browser's IndexedDB database. 
+              This data is only accessible from this browser and will persist until you clear your browser data.
+            </p>
+          </div>
+        )}
       </div>
 
       <div className="card">

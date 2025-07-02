@@ -1,13 +1,14 @@
 import { useState } from 'react'
-import { BackupService, RestoreRequest, ShamirConfig, StorageBackend, SafeConfig } from '@resilient-backup/library'
+import { BackupService, RestoreRequest, ShamirConfig, StorageBackend, EncryptedDataStorage, SafeConfig } from '@resilient-backup/library'
 
 interface RestoreComponentProps {
   shamirConfig: ShamirConfig
   storageBackend: StorageBackend
+  encryptedDataStorage: EncryptedDataStorage
   safeConfig: SafeConfig
 }
 
-export default function RestoreComponent({ shamirConfig, storageBackend, safeConfig }: RestoreComponentProps) {
+export default function RestoreComponent({ shamirConfig, storageBackend, encryptedDataStorage, safeConfig }: RestoreComponentProps) {
   const [encryptedBlobHash, setEncryptedBlobHash] = useState('')
   const [shardHashes, setShardHashes] = useState<string[]>(['', '', ''])
   const [safeSignature, setSafeSignature] = useState('')
@@ -44,7 +45,37 @@ export default function RestoreComponent({ shamirConfig, storageBackend, safeCon
     setStatus({ type: 'info', message: 'Starting restore process...' })
 
     try {
-      const backupService = new BackupService(shamirConfig, storageBackend, undefined, safeConfig)
+      // Step 1: Initialize restore service
+      console.log('🔧 [RESTORE] Initializing restore service...')
+      console.log('   📊 Shamir Config:', {
+        threshold: shamirConfig.threshold,
+        totalShares: shamirConfig.totalShares,
+        providedShards: validShards.length,
+        requiredShards: shamirConfig.threshold
+      })
+      console.log('   💾 Key Share Storage:', {
+        type: storageBackend.type,
+        endpoint: storageBackend.endpoint
+      })
+      console.log('   📦 Encrypted Data Storage:', {
+        type: encryptedDataStorage.type,
+        endpoint: encryptedDataStorage.endpoint
+      })
+      
+      const backupService = new BackupService(shamirConfig, storageBackend, encryptedDataStorage, undefined, safeConfig)
+      
+      // Step 2: Prepare restore request
+      console.log('📝 [RESTORE] Preparing restore request...')
+      console.log('   📦 Encrypted Blob Hash:', encryptedBlobHash)
+      console.log('   🔑 Provided Shards:', validShards.length)
+      validShards.forEach((hash, index) => {
+        console.log(`     Shard ${index + 1}: ${hash.substring(0, 20)}...`)
+      })
+      if (safeSignature) {
+        console.log('   🔐 Safe Signature: Provided (EIP-712)')
+      } else {
+        console.log('   🔐 Safe Signature: Not provided')
+      }
       
       const restoreRequest: RestoreRequest = {
         encryptedBlobHash,
@@ -53,11 +84,30 @@ export default function RestoreComponent({ shamirConfig, storageBackend, safeCon
         safeSignature: safeSignature || undefined
       }
 
+      // Step 3: Execute restore process
+      console.log('🚀 [RESTORE] Executing restore process...')
+      console.log('   📥 Downloading encrypted blob from', encryptedDataStorage.type)
+      console.log('   🔐 Requesting key shards from backup service')
+      console.log('   🔑 Reconstructing encryption key using Shamir Secret Sharing')
+      console.log('   🔓 Decrypting profile data with AES-256-GCM')
+      console.log('   ✅ Validating restored profile integrity')
+      
       const profile = await backupService.restore(restoreRequest)
+      
+      // Step 4: Restore completed
+      console.log('✅ [RESTORE] Profile restored successfully!')
+      console.log('   🆔 Profile ID:', profile.id)
+      console.log('   📝 Profile Name:', profile.metadata.name)
+      console.log('   📏 Data Size:', `${profile.data.length} bytes`)
+      console.log('   📅 Created:', profile.metadata.createdAt.toISOString())
+      console.log('   🔢 Version:', profile.metadata.version)
+      
       setRestoredProfile(profile)
       setStatus({ type: 'success', message: 'Profile restored successfully!' })
     } catch (error) {
-      console.error('Restore failed:', error)
+      console.error('❌ [RESTORE] Restore failed:', error)
+      console.log('   🔍 Error Type:', error instanceof Error ? error.constructor.name : typeof error)
+      console.log('   📋 Error Message:', error instanceof Error ? error.message : String(error))
       setStatus({ type: 'error', message: `Restore failed: ${error instanceof Error ? error.message : 'Unknown error'}` })
     } finally {
       setIsLoading(false)
