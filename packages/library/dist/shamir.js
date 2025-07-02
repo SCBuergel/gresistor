@@ -34,6 +34,7 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ShamirSecretSharing = void 0;
+// @ts-ignore - shamirs-secret-sharing doesn't have official types
 const sss = __importStar(require("shamirs-secret-sharing"));
 // Browser-compatible Shamir Secret Sharing implementation
 class ShamirSecretSharing {

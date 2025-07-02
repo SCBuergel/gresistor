@@ -1,4 +1,5 @@
 import { ShamirConfig, KeyShard } from './types';
+// @ts-ignore - shamirs-secret-sharing doesn't have official types
 import * as sss from 'shamirs-secret-sharing';
 
 // Browser-compatible Shamir Secret Sharing implementation

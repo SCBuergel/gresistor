@@ -9,6 +9,8 @@
   ],
   "scripts": {
     "build": "pnpm -r build",
+    "build:ui": "pnpm --filter @resilient-backup/library build && pnpm --filter @resilient-backup/ui build",
+    "deploy": "pnpm run build:ui",
     "dev": "pnpm -r --parallel dev",
     "test": "pnpm -r test",
     "lint": "pnpm -r lint"
