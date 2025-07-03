@@ -1,7 +1,7 @@
 {
-  "name": "@resilient-backup/library",
+  "name": "@gresistor/library",
   "version": "0.1.0",
-  "description": "Core TypeScript library for resilient backup system",
+  "description": "Core TypeScript library for gresistor - Gnosis Resilient Storage",
   "main": "dist/index.js",
   "module": "src/index.ts",
   "types": "dist/index.d.ts",

@@ -1,4 +1,4 @@
-# 🛡️ Resilient Backup System
+# 🛡️ gresistor - Gnosis Resilient Storage
 
 A robust, decentralized backup system for wallet profile data using **Shamir Secret Sharing** and multiple storage backends.
 
@@ -23,7 +23,7 @@ A robust, decentralized backup system for wallet profile data using **Shamir Sec
 - 🌐 **Remote Storage Backends** - IPFS and Swarm integration *(API stubs ready)*
 - 🛡️ **Safe Wallet Integration** - EIP-712 signature validation and EIP-1271 support *(structure in place)*
 - 🚀 **Remote Key-Backup Service** - Secure shard storage with Safe authentication *(server framework ready)*
-- 🔒 **Privacy Routing** - Tor and HOPR integration for enhanced anonymity
+- 🔒 **Privacy Routing** - Enhanced anonymity features
 - 🔧 **Additional Encryption Options** - ChaCha20-Poly1305 and AES-GCM-SIV algorithms
 - 📊 **Advanced Nonce Strategies** - Counter-based and XChaCha20 192-bit nonces
 
@@ -34,7 +34,7 @@ A robust, decentralized backup system for wallet profile data using **Shamir Sec
 This project is organized as a **monorepo** with the following packages:
 
 ```
-📦 resilient-backup/
+📦 gresistor/
 ├── 📚 packages/library/     # ✅ Core TypeScript library (IMPLEMENTED)
 ├── 🎨 packages/ui/          # ✅ React-based user interface (IMPLEMENTED)
 └── 🚀 services/key-backup/  # 🚧 Express.js backend for remote storage (PLANNED)
@@ -122,7 +122,7 @@ pnpm run deploy
 - **Backend**: Express.js + Node.js
 - **Remote Storage**: IPFS, Swarm APIs  
 - **Blockchain**: Safe SDK, EIP-712/EIP-1271
-- **Privacy**: Tor SOCKS proxy, HOPR mixnet
+- **Privacy**: Enhanced anonymity protocols
 - **CI/CD**: GitHub Actions
 
 ---
@@ -138,7 +138,7 @@ pnpm run deploy
 ### Planned Enhancements
 - **EIP-712 signature validation** for shard requests
 - **Safe multisig authentication** via EIP-1271
-- **Transport-layer privacy** via Tor/HOPR routing
+- **Transport-layer privacy** via enhanced routing protocols
 - **Hardware security module** support for enterprise deployments
 
 ---
@@ -164,7 +164,7 @@ pnpm run deploy
 - [ ] Multi-owner authentication
 
 ### Phase 4: Privacy & Enterprise 🔮 **FUTURE**
-- [ ] Tor/HOPR transport layers
+- [ ] Enhanced privacy transport layers
 - [ ] Alternative encryption algorithms
 - [ ] Hardware security modules
 - [ ] Enterprise key management

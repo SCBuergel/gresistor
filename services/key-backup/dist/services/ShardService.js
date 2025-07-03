@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ShardService = void 0;
-const library_1 = require("@resilient-backup/library");
+const library_1 = require("@gresistor/library");
 class ShardService {
     constructor() {
         this.shards = new Map(); // In-memory storage for demo

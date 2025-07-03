@@ -1,15 +1,15 @@
 {
-  "name": "resilient-backup",
+  "name": "gresistor",
   "version": "0.1.0",
   "private": true,
-  "description": "A resilient backup system for wallet profile data",
+  "description": "gresistor - Gnosis Resilient Storage (for wallet profile data)",
   "workspaces": [
     "packages/*",
     "services/*"
   ],
   "scripts": {
     "build": "pnpm -r build",
-    "build:ui": "pnpm --filter @resilient-backup/library build && pnpm --filter @resilient-backup/ui build",
+    "build:ui": "pnpm --filter @gresistor/library build && pnpm --filter @gresistor/ui build",
     "deploy": "pnpm run build:ui",
     "dev": "pnpm -r --parallel dev",
     "test": "pnpm -r test",

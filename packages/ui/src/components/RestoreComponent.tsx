@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
-import { BackupService, RestoreRequest, ShamirConfig, StorageBackend, EncryptedDataStorage, SafeConfig } from '@resilient-backup/library'
-import { KeyShareRegistryService, KeyShareStorageService } from '@resilient-backup/library'
+import { useState, useEffect, useRef } from 'react'
+import { BackupService, RestoreRequest, ShamirConfig, StorageBackend, EncryptedDataStorage, SafeConfig, BackupProfile } from '@gresistor/library'
+import { KeyShareRegistryService, KeyShareStorageService } from '@gresistor/library'
 
 interface RestoreComponentProps {
   shamirConfig: ShamirConfig
@@ -16,46 +16,51 @@ interface StoredBackup {
 }
 
 interface KeyShardInfo {
-  id: string
-  serviceId: string
   serviceName: string
-  backupId: string
-  shardIndex: number
+  serviceCreatedAt: Date
   threshold: number
   totalShares: number
   timestamp: Date
   isSelected: boolean
+  shardId: string
 }
 
 export default function RestoreComponent({ shamirConfig, storageBackend, encryptedDataStorage, safeConfig }: RestoreComponentProps) {
-  const [encryptedBlobHash, setEncryptedBlobHash] = useState('')
-  const [shardIds, setShardIds] = useState<string[]>(['', '', ''])
-  const [safeSignature, setSafeSignature] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
-  const [status, setStatus] = useState<{ type: 'success' | 'error' | 'info', message: string } | null>(null)
-  const [restoredProfile, setRestoredProfile] = useState<any>(null)
   const [availableBackups, setAvailableBackups] = useState<StoredBackup[]>([])
   const [selectedBackup, setSelectedBackup] = useState<string>('')
-  const [isLoadingBackups, setIsLoadingBackups] = useState(false)
+  const [encryptedBlobHash, setEncryptedBlobHash] = useState<string>('')
   const [availableKeyShards, setAvailableKeyShards] = useState<KeyShardInfo[]>([])
+  const [activeServices, setActiveServices] = useState<Array<{name: string, description?: string, createdAt: Date}>>([])
+  const [shardIds, setShardIds] = useState<string[]>([''])
+  const [status, setStatus] = useState<{ type: 'success' | 'error' | 'info'; message: string } | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
+  const [restoredProfile, setRestoredProfile] = useState<BackupProfile | null>(null)
+  const [safeSignature, setSafeSignature] = useState<string>('')
+  const [isLoadingBackups, setIsLoadingBackups] = useState(false)
   const [isLoadingKeyShards, setIsLoadingKeyShards] = useState(false)
+  
+  // Use refs to track if functions are currently running
+  const backupsLoadingRef = useRef(false)
+  const shardsLoadingRef = useRef(false)
 
-  // Load available backups when component mounts or when encryptedDataStorage changes
+  // Load data when component mounts or when storage backends change
   useEffect(() => {
-    if (encryptedDataStorage.type === 'local-browser') {
-      loadAvailableBackups()
+    const loadData = async () => {
+      if (encryptedDataStorage.type === 'local-browser' && !backupsLoadingRef.current) {
+        loadAvailableBackups()
+      }
+      if (storageBackend.type === 'local-browser' && !shardsLoadingRef.current) {
+        loadAvailableKeyShards()
+      }
     }
-  }, [encryptedDataStorage])
-
-  // Load key shards when a backup is selected
-  useEffect(() => {
-    // Load all available key shards on component mount (no backup selection needed)
-    if (storageBackend.type === 'local-browser') {
-      loadAvailableKeyShards()
-    }
-  }, [storageBackend.type])
+    
+    loadData()
+  }, [encryptedDataStorage.type, storageBackend.type])
 
   const loadAvailableBackups = async () => {
+    if (backupsLoadingRef.current) return // Prevent duplicate calls
+    
+    backupsLoadingRef.current = true
     setIsLoadingBackups(true)
     try {
       console.log('🔍 [RESTORE] Loading available encrypted backups from storage...')
@@ -97,15 +102,18 @@ export default function RestoreComponent({ shamirConfig, storageBackend, encrypt
       setStatus({ type: 'error', message: 'Failed to load available backups' })
     } finally {
       setIsLoadingBackups(false)
+      backupsLoadingRef.current = false
     }
   }
 
   const loadAvailableKeyShards = async () => {
+    if (shardsLoadingRef.current) return // Prevent duplicate calls
+    
+    shardsLoadingRef.current = true
     setIsLoadingKeyShards(true)
     try {
       console.log('🔍 [RESTORE] ========================================')
       console.log('🔍 [RESTORE] Loading ALL available key shards from all storage services...')
-      console.log('   ℹ️  Since metadata was removed for security, all shards are shown')
       console.log(`   🔧 Storage backend configured as: ${storageBackend.type}`)
       console.log('🔍 [RESTORE] ========================================')
       
@@ -115,32 +123,14 @@ export default function RestoreComponent({ shamirConfig, storageBackend, encrypt
         console.log('🔍 [RESTORE] Connecting to local key share registry...')
         
         const registry = new KeyShareRegistryService()
-        let services = await registry.listServices()
-        
-        // Auto-create default service if none exist
-        if (services.length === 0) {
-          console.log('   🔧 No storage services found. Creating default service...')
-          try {
-            const defaultServiceId = crypto.randomUUID()
-            await registry.registerService({
-              id: defaultServiceId,
-              name: 'Default Local Storage',
-              description: 'Automatically created default key share storage service',
-              isActive: true
-            })
-            console.log(`   ✅ Created default service: "${defaultServiceId}"`)
-            
-            // Reload services
-            services = await registry.listServices()
-          } catch (error) {
-            console.error('   ❌ Failed to create default service:', error)
-          }
-        }
-        
+        const services = await registry.listServices()
         const activeServices = services.filter(s => s.isActive)
         
         console.log(`   📋 Total services registered: ${services.length}`)
         console.log(`   ✅ Active services: ${activeServices.length}`)
+        
+        // Store active services for UI rendering
+        setActiveServices(activeServices)
         
         if (activeServices.length === 0) {
           console.log('   ⚠️  No active key share services found. Please configure storage services in the Config tab.')
@@ -154,55 +144,40 @@ export default function RestoreComponent({ shamirConfig, storageBackend, encrypt
         }
         
         activeServices.forEach((service, index) => {
-          console.log(`     ${index + 1}. "${service.name}" (ID: ${service.id})`)
+          console.log(`     ${index + 1}. "${service.name}"`)
           console.log(`        Description: ${service.description || 'No description'}`)
           console.log(`        Created: ${service.createdAt.toLocaleString()}`)
         })
         
-        console.log('🔍 [RESTORE] Searching each service for matching key shards...')
+        console.log('📦 [RESTORE] Loading all available key shards from each service...')
         
         for (const service of activeServices) {
           console.log(`\n   🔍 [SERVICE: ${service.name}] Connecting to storage service...`)
           try {
-            const storageService = new KeyShareStorageService(service.id)
-            const shardIds = await storageService.listShardIds()
-            console.log(`     📦 Total shards in service: ${shardIds.length}`)
+            const storageService = new KeyShareStorageService(service.name)
+            const allShardsInService = await storageService.getAllShards()
+            console.log(`     📦 Total shards in service: ${allShardsInService.length}`)
             
-            // Load ALL shards from this service (no filtering by backup hash)
-            console.log(`     📥 Loading ALL ${shardIds.length} shards from service`)
-            
-            for (const shardId of shardIds) {
-              try {
-                console.log(`     📥 Loading shard: ${shardId}`)
-                const shardData = await storageService.getShard(shardId)
-                
-                // Extract shard index from shardId (format: shard_timestamp_index)
-                const shardIndexMatch = shardId.match(/_(\d+)$/)
-                const shardIndex = shardIndexMatch ? parseInt(shardIndexMatch[1]) : 0
-                
-                console.log(`       ✅ Shard loaded successfully:`)
-                console.log(`          - Shard Index: ${shardIndex}`)
-                console.log(`          - Data Size: ${shardData.data.length} bytes`)
-                console.log(`          - Service: ${service.name}`)
-                
-                // Extract timestamp from shard ID for more accurate timestamp
-                const timestampMatch = shardId.match(/shard_(\d+)_/)
-                const shardTimestamp = timestampMatch ? new Date(parseInt(timestampMatch[1])) : new Date()
+            if (allShardsInService.length > 0) {
+              console.log(`       ✅ Shards loaded successfully: ${allShardsInService.length} shards`)
+              console.log(`          - Service: ${service.name}`)
+              
+              // Add all shards from this service
+              allShardsInService.forEach((shard, index) => {
+                console.log(`          - Shard ${index + 1}: Data Size: ${shard.data.length} bytes, Timestamp: ${shard.timestamp}`)
                 
                 allShards.push({
-                  id: shardId,
-                  serviceId: service.id,
                   serviceName: service.name,
-                  backupId: 'unknown', // No longer available due to metadata removal
-                  shardIndex: shardIndex,
+                  serviceCreatedAt: service.createdAt,
                   threshold: shamirConfig.threshold,
                   totalShares: shamirConfig.totalShares,
-                  timestamp: shardTimestamp,
-                  isSelected: false
+                  timestamp: shard.timestamp,
+                  isSelected: false,
+                  shardId: `${service.name}_${shard.timestamp.getTime()}`
                 })
-              } catch (error) {
-                console.error(`       ❌ Failed to load shard ${shardId}:`, error)
-              }
+              })
+            } else {
+              console.log(`       ⚠️  No shards found in ${service.name}`)
             }
           } catch (error) {
             console.error(`   ❌ [SERVICE: ${service.name}] Failed to access service:`, error)
@@ -212,6 +187,9 @@ export default function RestoreComponent({ shamirConfig, storageBackend, encrypt
         console.log(`🔍 [RESTORE] Remote storage backend (${storageBackend.type}) - using manual shard input`)
         console.log(`   📡 Endpoint: ${storageBackend.endpoint}`)
         console.log('   ℹ️  For remote storage, please manually enter shard hashes below')
+        
+        // Clear services for remote storage
+        setActiveServices([])
       }
       
       console.log('\n🔍 [RESTORE] ========================================')
@@ -219,15 +197,16 @@ export default function RestoreComponent({ shamirConfig, storageBackend, encrypt
       if (allShards.length > 0) {
         // Group by service for better logging
         const shardsByService = allShards.reduce((acc, shard) => {
-          if (!acc[shard.serviceId]) {
-            acc[shard.serviceId] = {
+          if (!acc[shard.serviceName]) {
+            acc[shard.serviceName] = {
               serviceName: shard.serviceName,
+              serviceCreatedAt: shard.serviceCreatedAt,
               shards: []
             };
           }
-          acc[shard.serviceId].shards.push(shard);
+          acc[shard.serviceName].shards.push(shard);
           return acc;
-        }, {} as Record<string, { serviceName: string; shards: typeof allShards }>);
+        }, {} as Record<string, { serviceName: string; serviceCreatedAt: Date; shards: typeof allShards }>);
 
         console.log('   📦 Available shards by storage service:')
         Object.values(shardsByService).forEach((service) => {
@@ -235,7 +214,7 @@ export default function RestoreComponent({ shamirConfig, storageBackend, encrypt
           service.shards
             .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
             .forEach((shard, index) => {
-              console.log(`       ${index + 1}. Shard ${shard.shardIndex + 1} - ${shard.timestamp.toLocaleString()}`)
+              console.log(`       ${index + 1}. ${shard.timestamp.toLocaleString()}`)
             })
         })
         console.log(`   🔧 Required for restore: ${shamirConfig.threshold} shards`)
@@ -257,6 +236,7 @@ export default function RestoreComponent({ shamirConfig, storageBackend, encrypt
       setStatus({ type: 'error', message: 'Failed to load key shards' })
     } finally {
       setIsLoadingKeyShards(false)
+      shardsLoadingRef.current = false
     }
   }
 
@@ -270,17 +250,26 @@ export default function RestoreComponent({ shamirConfig, storageBackend, encrypt
 
   const toggleShardSelection = (shardId: string) => {
     setAvailableKeyShards(prev => {
-      const newShards = prev.map(shard => 
-        shard.id === shardId ? { ...shard, isSelected: !shard.isSelected } : shard
-      )
+      const selectedShard = prev.find(s => s.shardId === shardId)
+      if (!selectedShard) return prev
+      
+      const newShards = prev.map(shard => {
+        if (shard.shardId === shardId) {
+          // Select this shard
+          return { ...shard, isSelected: true }
+        } else if (shard.serviceName === selectedShard.serviceName) {
+          // Deselect any other shard from the same service (radio button behavior)
+          return { ...shard, isSelected: false }
+        } else {
+          // Keep other services' selections unchanged
+          return shard
+        }
+      })
       
       const selectedCount = newShards.filter(s => s.isSelected).length
-      const shard = newShards.find(s => s.id === shardId)
       
-      if (shard) {
-        console.log(`🔧 [RESTORE] ${shard.isSelected ? 'Selected' : 'Deselected'} shard: ${shard.serviceName} - Shard ${shard.shardIndex + 1}`)
-        console.log(`   📊 Total selected: ${selectedCount}/${shamirConfig.threshold} required`)
-      }
+      console.log(`🔧 [RESTORE] Selected shard: ${selectedShard.serviceName} - ${selectedShard.timestamp.toLocaleString()}`)
+      console.log(`   📊 Total selected: ${selectedCount}/${shamirConfig.threshold} required`)
       
       return newShards
     })
@@ -363,14 +352,14 @@ export default function RestoreComponent({ shamirConfig, storageBackend, encrypt
         // Use selected key shards from local storage
         console.log('   🔑 Selected Key Shards:', selectedKeyShards.length)
         selectedKeyShards.forEach((shard, index) => {
-          console.log(`     Shard ${index + 1}: ${shard.serviceName} (${shard.shardIndex})`)
+          console.log(`     Shard ${index + 1}: ${shard.serviceName}`)
         })
         
-        // For local storage, we'll pass the selected shard IDs
-        // The backup service will handle retrieving them
+        // For local storage, we'll pass the selected service names
+        // The backup service will retrieve the latest shard from each service
         restoreRequest = {
           encryptedBlobHash,
-          shardIds: selectedKeyShards.map(shard => shard.id), // Use shard IDs instead of hashes
+          shardIds: selectedKeyShards.map(shard => shard.serviceName), // Use service names from selected individual shards
           requiredShards: shamirConfig.threshold,
           safeSignature: safeSignature || undefined
         }
@@ -490,68 +479,61 @@ export default function RestoreComponent({ shamirConfig, storageBackend, encrypt
           
           {isLoadingKeyShards ? (
             <p>Loading key shards...</p>
-          ) : availableKeyShards.length > 0 ? (
+          ) : activeServices.length > 0 ? (
             <div>
-              {(() => {
-                // Group shards by service and sort by timestamp within each service
-                const shardsByService = availableKeyShards.reduce((acc, shard) => {
-                  if (!acc[shard.serviceId]) {
-                    acc[shard.serviceId] = {
-                      serviceName: shard.serviceName,
-                      serviceId: shard.serviceId,
-                      shards: []
-                    };
-                  }
-                  acc[shard.serviceId].shards.push(shard);
-                  return acc;
-                }, {} as Record<string, { serviceName: string; serviceId: string; shards: typeof availableKeyShards }>);
+              <p><b>Storage Type:</b> Local Browser IndexedDB</p>
+              {activeServices.map((service) => {
+                // Get shards for this specific service
+                const serviceShards = availableKeyShards
+                  .filter(shard => shard.serviceName === service.name)
+                  .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
 
-                // Sort shards within each service by timestamp (newest first)
-                Object.values(shardsByService).forEach(service => {
-                  service.shards.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
-                });
-
-                return Object.values(shardsByService).map((service) => (
-                  <div key={service.serviceId}>
+                return (
+                  <div key={service.name}>
                     <table border={1} style={{ marginBottom: '20px' }}>
                       <thead>
                         <tr style={{ backgroundColor: '#f0f0f0' }}>
-                          <th colSpan={4}>
-                            <b>{service.serviceName}</b> - Storage Type: Local Browser IndexedDB | 
-                            Service ID: {service.serviceId.substring(0, 12)}... | 
-                            {service.shards.length} shard{service.shards.length !== 1 ? 's' : ''} available
+                          <th colSpan={2}>
+                            <b>{service.name}</b> | 
+                            Created: {service.createdAt.toLocaleString()} | 
+                            {serviceShards.length} shard{serviceShards.length !== 1 ? 's' : ''} available
                           </th>
                         </tr>
                         <tr>
                           <th>Select</th>
-                          <th>Shard</th>
-                          <th>Shard ID</th>
                           <th>Created</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {service.shards.map((shard) => (
-                          <tr key={shard.id}>
-                            <td>
-                              <input
-                                type="checkbox"
-                                checked={shard.isSelected}
-                                onChange={() => toggleShardSelection(shard.id)}
-                              />
+                        {serviceShards.length > 0 ? (
+                          serviceShards.map((shard) => (
+                            <tr key={shard.shardId}>
+                              <td>
+                                <input
+                                  type="radio"
+                                  name={`service-${service.name}`}
+                                  checked={shard.isSelected}
+                                  onChange={() => toggleShardSelection(shard.shardId)}
+                                />
+                              </td>
+                              <td><small>{shard.timestamp.toLocaleString()}</small></td>
+                            </tr>
+                          ))
+                        ) : (
+                          <tr>
+                            <td colSpan={2} style={{ textAlign: 'center', fontStyle: 'italic', color: '#888' }}>
+                              No shards available in this service
                             </td>
-                            <td><b>Shard {shard.shardIndex + 1}</b></td>
-                            <td><small>{shard.id}</small></td>
-                            <td><small>{shard.timestamp.toLocaleString()}</small></td>
                           </tr>
-                        ))}
+                        )}
                       </tbody>
                     </table>
                   </div>
-                ));
-              })()}
+                );
+              })}
             </div>
           ) : (
-            <p><i>No key shards found in any storage service</i></p>
+            <p><i>No active key share services found</i></p>
           )}
 
           <p>
@@ -588,7 +570,7 @@ export default function RestoreComponent({ shamirConfig, storageBackend, encrypt
                 type="text"
                 value={id}
                 onChange={(e) => updateShardHash(index, e.target.value)}
-                placeholder={`Shard ${index + 1} ID`}
+                placeholder="Shard ID"
               />
               {shardIds.length > 1 && (
                 <button type="button" onClick={() => removeShardField(index)}>Remove</button>

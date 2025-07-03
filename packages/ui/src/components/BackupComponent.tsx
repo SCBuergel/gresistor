@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { BackupService, BackupProfile, ShamirConfig, StorageBackend, EncryptedDataStorage, SafeConfig } from '@resilient-backup/library'
+import { BackupService, BackupProfile, ShamirConfig, StorageBackend, EncryptedDataStorage, SafeConfig } from '@gresistor/library'
 
 interface BackupComponentProps {
   shamirConfig: ShamirConfig
@@ -165,7 +165,7 @@ export default function BackupComponent({ shamirConfig, storageBackend, encrypte
             <h3>Key Shards</h3>
             <ul>
               {backupResult.shardIds.map((id: string, index: number) => (
-                <li key={index}>Shard {index + 1}: {id}</li>
+                <li key={index}>{id}</li>
               ))}
             </ul>
           </div>

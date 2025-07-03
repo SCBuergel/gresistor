@@ -1,4 +1,4 @@
-import { SafeAuthService, EIP712Message } from '@resilient-backup/library'
+import { SafeAuthService, EIP712Message } from '@gresistor/library'
 
 export interface ShardRequestData {
   shardId: string

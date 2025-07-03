@@ -114,32 +114,30 @@ export class BackupService {
       }
       
       // Validate that we have enough services for proper distribution
-      // To maintain security, we need at least as many services as the threshold
-      // so that no single service can reconstruct the secret alone
-      if (activeServices.length < keyShards[0].threshold) {
-        throw new Error(`Insufficient key services for secure distribution. Need at least ${keyShards[0].threshold} active services but only ${activeServices.length} available. Each service must receive at most ${keyShards[0].threshold - 1} shards to maintain security.`);
+      // To maintain security, we need exactly as many services as total shares (M)
+      // so that each service gets exactly one shard
+      if (activeServices.length < keyShards.length) {
+        throw new Error(`Insufficient key services for secure distribution. Need exactly ${keyShards.length} active services (one per shard) but only ${activeServices.length} available.`);
       }
       
-      // Distribute shards across active services
+      // Distribute shards across active services (one shard per service)
       const timestamp = Date.now();
       for (let i = 0; i < keyShards.length; i++) {
         const shard = keyShards[i];
-        const serviceIndex = i % activeServices.length;
-        const service = activeServices[serviceIndex];
+        const service = activeServices[i]; // Direct 1:1 mapping since we validated we have enough services
         
         // Get or create storage service for this service
-        let storageService = this.keyShareStorages.get(service.id);
+        let storageService = this.keyShareStorages.get(service.name);
         if (!storageService) {
-          storageService = new KeyShareStorageService(service.id);
-          this.keyShareStorages.set(service.id, storageService);
+          storageService = new KeyShareStorageService(service.name);
+          this.keyShareStorages.set(service.name, storageService);
         }
         
-        // Store the shard with timestamp-based ID
-        const shardId = `shard_${timestamp}_${i}`;
-        await storageService.storeShard(shardId, shard.data);
+        // Store the shard data directly (no ID needed)
+        await storageService.storeShard(shard.data);
         
-        // Return shard ID instead of hash - users need IDs to restore
-        shardIds.push(shardId);
+        // Track that we stored a shard in this service
+        shardIds.push(`stored_in_${service.name}`);
       }
     } else {
       // Store shards in remote storage (stub implementation)
@@ -193,75 +191,37 @@ export class BackupService {
     let mockShards: KeyShard[] = []
     
     if (this.keyShareStorage instanceof KeyShareRegistryService) {
-      // Try to retrieve shards from local storage services
-      const services = await this.keyShareStorage.listServices()
-      const activeServices = services.filter(s => s.isActive)
+      // Retrieve shards from specified local storage services
+      console.log('   📦 [RESTORE] Loading shards from specified services...')
+      console.log('   📋 [RESTORE] Requested services:', request.shardIds)
       
-      console.log('   🔍 [RESTORE] Found active key share services:', activeServices.length)
-      activeServices.forEach(service => {
-        console.log(`     - ${service.name} (${service.id})`)
-      })
-      
-      if (activeServices.length > 0) {
-        // Check if we're receiving shard IDs (from local storage) or hashes (from manual input)
-        const isShardIds = request.shardIds.some(id => id.includes('shard_'))
-        console.log('   🔍 [RESTORE] Input type:', isShardIds ? 'Shard IDs' : 'Shard Hashes')
-        console.log('   📋 [RESTORE] Input shards:', request.shardIds)
-        
-        if (isShardIds) {
-          // We have shard IDs, retrieve the actual shard data
-          console.log('   🔍 [RESTORE] Retrieving shards by ID...')
-          for (const shardId of request.shardIds) {
-            console.log(`     📥 [RESTORE] Looking for shard: ${shardId}`)
-            let shardFound = false
-            
-            for (const service of activeServices) {
-              try {
-                console.log(`       🔍 [RESTORE] Checking service: ${service.name}`)
-                const storageService = new KeyShareStorageService(service.id)
-                const shardData = await storageService.getShard(shardId)
-                
-                console.log(`       ✅ [RESTORE] Shard found in ${service.name}:`, {
-                  id: shardId,
-                  dataSize: shardData.data.length
-                })
-                
-                mockShards.push({
-                  id: shardId,
-                  data: shardData.data,
-                  threshold: request.requiredShards,
-                  totalShares: request.shardIds.length
-                })
-                
-                shardFound = true
-                break
-              } catch (error) {
-                console.log(`       ❌ [RESTORE] Shard not found in ${service.name}:`, error instanceof Error ? error.message : String(error))
-                // Shard not found in this service, try next
-                continue
-              }
-            }
-            
-            if (!shardFound) {
-              console.error(`   ❌ [RESTORE] Shard ${shardId} not found in any active service`)
-            }
-          }
-        } else {
-          // Legacy fallback: treat input as data hashes for mock reconstruction
-          console.log('   ⚠️  [RESTORE] Input appears to be data hashes rather than shard IDs')
-          console.log('   ⚠️  [RESTORE] Shard discovery by blob hash is no longer supported')
-          console.log('   ⚠️  [RESTORE] Please provide the actual shard IDs from the backup result')
+      for (const serviceName of request.shardIds) {
+        try {
+          console.log(`       📂 [RESTORE] Loading from service: ${serviceName}`)
+          const storageService = new KeyShareStorageService(serviceName)
+          const allShards = await storageService.getAllShards()
           
-          // Create mock shards from the provided data if they're not shard IDs
-          for (let i = 0; i < request.shardIds.length; i++) {
-            const mockData = new TextEncoder().encode(request.shardIds[i].substring(0, 32))
+          if (allShards.length > 0) {
+            // Get the most recent shard from this service
+            const latestShard = allShards.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())[0]
+            
+            console.log(`       ✅ [RESTORE] Shard loaded from ${serviceName}:`, {
+              timestamp: latestShard.timestamp,
+              dataSize: latestShard.data.length
+            })
+            
             mockShards.push({
-              id: `mock_share_${i + 1}`,
-              data: mockData,
+              id: `shard_${serviceName}`,
+              data: latestShard.data,
               threshold: request.requiredShards,
               totalShares: request.shardIds.length
             })
+          } else {
+            console.log(`       ❌ [RESTORE] No shards found in ${serviceName}`)
           }
+        } catch (error) {
+          console.log(`       ❌ [RESTORE] Error accessing ${serviceName}:`, error instanceof Error ? error.message : String(error))
+          continue
         }
       }
     }
@@ -271,17 +231,9 @@ export class BackupService {
       console.log(`     ${index + 1}. ${shard.id} (${shard.data.length} bytes)`)
     })
     
-    // If no shards found in storage, use mock shards from hashes
-    if (mockShards.length === 0) {
-      console.log('   ⚠️  [RESTORE] No shards found in storage, using mock shards from hashes')
-      for (let i = 0; i < request.shardIds.length; i++) {
-        mockShards.push({
-          id: `share_${i + 1}`,
-          data: new TextEncoder().encode(request.shardIds[i].substring(0, 32)), // Mock data
-          threshold: request.requiredShards,
-          totalShares: request.shardIds.length
-        })
-      }
+    // Validate we have enough shards
+    if (mockShards.length < request.requiredShards) {
+      throw new Error(`Insufficient shards collected: ${mockShards.length} found, ${request.requiredShards} required`)
     }
     
     // Step 4: Reconstruct the encryption key

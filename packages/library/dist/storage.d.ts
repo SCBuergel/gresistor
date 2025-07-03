@@ -5,7 +5,6 @@ declare global {
     }
 }
 export type KeyShareService = {
-    id: string;
     name: string;
     description?: string;
     createdAt: Date;
@@ -31,32 +30,29 @@ export declare class KeyShareRegistryService {
     /**
      * Deletes a key share service from registry
      */
-    deleteService(id: string): Promise<void>;
+    deleteService(name: string): Promise<void>;
 }
 export declare class KeyShareStorageService {
     private dbName;
     private dbVersion;
     private storeName;
-    constructor(serviceId: string);
+    constructor(serviceName: string);
     private getDB;
     /**
      * Stores a key shard
      */
-    storeShard(shardId: string, shardData: Uint8Array): Promise<void>;
+    storeShard(shardData: Uint8Array): Promise<void>;
     /**
-     * Retrieves a key shard
+     * Retrieves all key shards
      */
-    getShard(shardId: string): Promise<{
+    getAllShards(): Promise<Array<{
         data: Uint8Array;
-    }>;
+        timestamp: Date;
+    }>>;
     /**
-     * Lists all stored shard IDs
+     * Deletes a key shard by internal key
      */
-    listShardIds(): Promise<string[]>;
-    /**
-     * Deletes a key shard
-     */
-    deleteShard(shardId: string): Promise<void>;
+    deleteShard(key: number): Promise<void>;
     /**
      * Clears all shards in this storage
      */

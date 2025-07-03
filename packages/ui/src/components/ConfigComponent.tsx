@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
-import { ShamirConfig, StorageBackend, EncryptedDataStorage, SafeConfig } from '@resilient-backup/library'
-import { KeyShareRegistryService, KeyShareService, KeyShareStorageService } from '@resilient-backup/library'
+import { ShamirConfig, StorageBackend, EncryptedDataStorage, SafeConfig } from '@gresistor/library'
+import { KeyShareRegistryService, KeyShareService, KeyShareStorageService } from '@gresistor/library'
 
 interface ConfigComponentProps {
   shamirConfig: ShamirConfig
@@ -56,7 +56,9 @@ export default function ConfigComponent({
     try {
       const registry = new KeyShareRegistryService()
       const services = await registry.listServices()
-      setKeyShareServices(services)
+      // Sort by creation time (newest first)
+      const sortedServices = services.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      setKeyShareServices(sortedServices)
     } catch (error) {
       console.error('Failed to load key share services:', error)
     } finally {
@@ -69,53 +71,81 @@ export default function ConfigComponent({
 
     try {
       const registry = new KeyShareRegistryService()
-      const serviceId = generateUUIDv4()
       
-      await registry.registerService({
-        id: serviceId,
+      const newService = {
         name: newServiceName.trim(),
         description: newServiceDescription.trim() || undefined,
         isActive: true
-      })
-
+      }
+      
+      // Optimistically update UI immediately
+      setKeyShareServices(prev => [...prev, {
+        ...newService,
+        createdAt: new Date()
+      }])
       setNewServiceName('')
       setNewServiceDescription('')
       setShowCreateForm(false)
+      
+      await registry.registerService(newService)
+      
+      // Reload to ensure consistency (in case optimistic update was wrong)
       await loadKeyShareServices()
     } catch (error) {
       console.error('Failed to create key share service:', error)
+      // Show error message if name already exists
+      if (error instanceof Error && error.message.includes('already exists')) {
+        alert(error.message)
+      }
+      // Reload on error to restore correct state
+      await loadKeyShareServices()
     }
   }
 
-  const deleteKeyShareService = async (serviceId: string) => {
+  const deleteKeyShareService = async (serviceName: string) => {
     if (!confirm('Are you sure you want to delete this key share service? This will also delete all stored key shards.')) {
       return
     }
 
     try {
+      // Optimistically update UI immediately
+      setKeyShareServices(prev => prev.filter(service => service.name !== serviceName))
+      
       const registry = new KeyShareRegistryService()
-      await registry.deleteService(serviceId)
+      await registry.deleteService(serviceName)
       
       // Also delete the database
-      const storageService = new KeyShareStorageService(serviceId)
+      const storageService = new KeyShareStorageService(serviceName)
       await storageService.deleteDatabase()
       
+      // Reload to ensure consistency (in case optimistic update was wrong)
       await loadKeyShareServices()
     } catch (error) {
       console.error('Failed to delete key share service:', error)
+      // Reload on error to restore correct state
+      await loadKeyShareServices()
     }
   }
 
   const toggleServiceActive = async (service: KeyShareService) => {
     try {
+      // Optimistically update UI immediately
+      setKeyShareServices(prev => prev.map(s => 
+        s.name === service.name ? { ...s, isActive: !s.isActive } : s
+      ))
+      
       const registry = new KeyShareRegistryService()
       await registry.updateService({
         ...service,
         isActive: !service.isActive
       })
+      
+      // Reload to ensure consistency (in case optimistic update was wrong)
       await loadKeyShareServices()
     } catch (error) {
       console.error('Failed to update key share service:', error)
+      // Reload on error to restore correct state
+      await loadKeyShareServices()
     }
   }
 
@@ -174,8 +204,8 @@ export default function ConfigComponent({
             })}
           >
             <option value="local-browser">Local Browser Storage</option>
-            <option value="swarm">Swarm</option>
-            <option value="ipfs">IPFS</option>
+            <option value="swarm" disabled>Swarm (Coming Soon)</option>
+            <option value="ipfs" disabled>IPFS (Coming Soon)</option>
           </select>
         </div>
 
@@ -204,7 +234,7 @@ export default function ConfigComponent({
                   </thead>
                   <tbody>
                     {keyShareServices.map((service) => (
-                      <tr key={service.id}>
+                      <tr key={service.name}>
                         <td><b>{service.name}</b></td>
                         <td><small>{service.description || '-'}</small></td>
                         <td><small>{service.createdAt.toLocaleString()}</small></td>
@@ -219,7 +249,7 @@ export default function ConfigComponent({
                           {' '}
                           <button
                             type="button"
-                            onClick={() => deleteKeyShareService(service.id)}
+                            onClick={() => deleteKeyShareService(service.name)}
                           >
                             Delete
                           </button>
@@ -336,8 +366,8 @@ export default function ConfigComponent({
             })}
           >
             <option value="local-browser">Local Browser Storage</option>
-            <option value="swarm">Swarm</option>
-            <option value="ipfs">IPFS</option>
+            <option value="swarm" disabled>Swarm (Coming Soon)</option>
+            <option value="ipfs" disabled>IPFS (Coming Soon)</option>
           </select>
         </div>
 
@@ -382,7 +412,7 @@ export default function ConfigComponent({
       <hr />
 
       <div>
-        <h1>Gnosis Safe Configuration</h1>
+        <h1>Safe Configuration</h1>
         <p>Configure Safe for EIP-712 authentication of shard requests</p>
         
         <div>
@@ -414,19 +444,7 @@ export default function ConfigComponent({
           </select>
         </div>
 
-        <div>
-          <h2>Safe Owners (comma-separated)</h2>
-          <textarea
-            value={safeConfig.owners.join(', ')}
-            onChange={(e) => setSafeConfig({
-              ...safeConfig,
-              owners: e.target.value.split(',').map(addr => addr.trim()).filter(addr => addr)
-            })}
-            placeholder="0x..., 0x..., 0x..."
-            rows={3}
-            cols={80}
-          />
-        </div>
+
       </div>
     </div>
   )

@@ -1,4 +1,4 @@
-import { EIP712Message } from '@resilient-backup/library';
+import { EIP712Message } from '@gresistor/library';
 export interface ShardRequestData {
     shardId: string;
     requesterAddress: string;

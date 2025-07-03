@@ -51,7 +51,7 @@ importers:
 
   packages/ui:
     dependencies:
-      '@resilient-backup/library':
+      '@gresistor/library':
         specifier: workspace:*
         version: link:../library
       react:
@@ -106,7 +106,7 @@ importers:
 
   services/key-backup:
     dependencies:
-      '@resilient-backup/library':
+      '@gresistor/library':
         specifier: workspace:*
         version: link:../../packages/library
       cors:

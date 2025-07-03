@@ -4,7 +4,7 @@ exports.BrowserStorageService = exports.InMemoryStorageService = exports.Storage
 class KeyShareRegistryService {
     constructor() {
         this.dbName = 'KeyShareRegistryDB';
-        this.dbVersion = 1;
+        this.dbVersion = 2; // Increment version for schema change
         this.storeName = 'services';
     }
     async getDB() {
@@ -19,7 +19,7 @@ class KeyShareRegistryService {
             request.onupgradeneeded = (event) => {
                 const db = event.target.result;
                 if (!db.objectStoreNames.contains(this.storeName)) {
-                    db.createObjectStore(this.storeName, { keyPath: 'id' });
+                    db.createObjectStore(this.storeName, { keyPath: 'name' }); // Use name as key instead of id
                 }
             };
         });
@@ -51,13 +51,23 @@ class KeyShareRegistryService {
         return new Promise((resolve, reject) => {
             const transaction = db.transaction([this.storeName], 'readwrite');
             const store = transaction.objectStore(this.storeName);
-            const serviceData = {
-                ...service,
-                createdAt: new Date().toISOString()
+            // First check if service name already exists
+            const checkRequest = store.get(service.name);
+            checkRequest.onsuccess = () => {
+                if (checkRequest.result) {
+                    reject(new Error(`Service name "${service.name}" already exists. Please choose a different name.`));
+                    return;
+                }
+                // Name is unique, proceed with creation
+                const serviceData = {
+                    ...service,
+                    createdAt: new Date().toISOString()
+                };
+                const request = store.put(serviceData);
+                request.onsuccess = () => resolve();
+                request.onerror = () => reject(request.error);
             };
-            const request = store.put(serviceData);
-            request.onsuccess = () => resolve();
-            request.onerror = () => reject(request.error);
+            checkRequest.onerror = () => reject(checkRequest.error);
         });
     }
     /**
@@ -80,12 +90,12 @@ class KeyShareRegistryService {
     /**
      * Deletes a key share service from registry
      */
-    async deleteService(id) {
+    async deleteService(name) {
         const db = await this.getDB();
         return new Promise((resolve, reject) => {
             const transaction = db.transaction([this.storeName], 'readwrite');
             const store = transaction.objectStore(this.storeName);
-            const request = store.delete(id);
+            const request = store.delete(name);
             request.onsuccess = () => resolve();
             request.onerror = () => reject(request.error);
         });
@@ -93,10 +103,10 @@ class KeyShareRegistryService {
 }
 exports.KeyShareRegistryService = KeyShareRegistryService;
 class KeyShareStorageService {
-    constructor(serviceId) {
-        this.dbVersion = 1;
+    constructor(serviceName) {
+        this.dbVersion = 2;
         this.storeName = 'keyShards';
-        this.dbName = `KeyShareDB_${serviceId}`;
+        this.dbName = `KeyShardService_${serviceName}`;
     }
     async getDB() {
         // Check if we're in a browser environment
@@ -110,7 +120,7 @@ class KeyShareStorageService {
             request.onupgradeneeded = (event) => {
                 const db = event.target.result;
                 if (!db.objectStoreNames.contains(this.storeName)) {
-                    db.createObjectStore(this.storeName, { keyPath: 'id' });
+                    db.createObjectStore(this.storeName, { autoIncrement: true });
                 }
             };
         });
@@ -118,65 +128,48 @@ class KeyShareStorageService {
     /**
      * Stores a key shard
      */
-    async storeShard(shardId, shardData) {
+    async storeShard(shardData) {
         const db = await this.getDB();
         return new Promise((resolve, reject) => {
             const transaction = db.transaction([this.storeName], 'readwrite');
             const store = transaction.objectStore(this.storeName);
             const item = {
-                id: shardId,
                 data: Array.from(shardData),
                 timestamp: new Date().toISOString()
             };
-            const request = store.put(item);
+            const request = store.add(item); // Use add() instead of put() for autoIncrement
             request.onsuccess = () => resolve();
             request.onerror = () => reject(request.error);
         });
     }
     /**
-     * Retrieves a key shard
+     * Retrieves all key shards
      */
-    async getShard(shardId) {
+    async getAllShards() {
         const db = await this.getDB();
         return new Promise((resolve, reject) => {
             const transaction = db.transaction([this.storeName], 'readonly');
             const store = transaction.objectStore(this.storeName);
-            const request = store.get(shardId);
+            const request = store.getAll();
             request.onsuccess = () => {
-                if (request.result) {
-                    resolve({
-                        data: new Uint8Array(request.result.data)
-                    });
-                }
-                else {
-                    reject(new Error(`Shard not found: ${shardId}`));
-                }
+                const results = request.result.map(item => ({
+                    data: new Uint8Array(item.data),
+                    timestamp: new Date(item.timestamp)
+                }));
+                resolve(results);
             };
             request.onerror = () => reject(request.error);
         });
     }
     /**
-     * Lists all stored shard IDs
+     * Deletes a key shard by internal key
      */
-    async listShardIds() {
-        const db = await this.getDB();
-        return new Promise((resolve, reject) => {
-            const transaction = db.transaction([this.storeName], 'readonly');
-            const store = transaction.objectStore(this.storeName);
-            const request = store.getAllKeys();
-            request.onsuccess = () => resolve(request.result);
-            request.onerror = () => reject(request.error);
-        });
-    }
-    /**
-     * Deletes a key shard
-     */
-    async deleteShard(shardId) {
+    async deleteShard(key) {
         const db = await this.getDB();
         return new Promise((resolve, reject) => {
             const transaction = db.transaction([this.storeName], 'readwrite');
             const store = transaction.objectStore(this.storeName);
-            const request = store.delete(shardId);
+            const request = store.delete(key);
             request.onsuccess = () => resolve();
             request.onerror = () => reject(request.error);
         });
