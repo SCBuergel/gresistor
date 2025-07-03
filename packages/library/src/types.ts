@@ -64,11 +64,16 @@ export interface BackupResult {
   };
 }
 
-export interface RestoreRequest {
-  encryptedBlobHash: string;
-  shardIds: string[];
-  requiredShards: number;
-  safeSignature?: string;
+export type AuthorizationType = 'no-auth' | 'mock-signature-2x';
+
+export interface AuthData {
+  ownerAddress: string;
+  signature?: string; // Only for signature-based auth types
+}
+
+export interface ServiceAuthConfig {
+  authType: AuthorizationType;
+  description: string;
 }
 
 export interface KeyShard {
@@ -76,6 +81,16 @@ export interface KeyShard {
   data: Uint8Array;
   threshold: number;
   totalShares: number;
+  authorizationAddress?: string; // Address that can authorize retrieval of this shard
+}
+
+export interface RestoreRequest {
+  encryptedBlobHash: string;
+  shardIds: string[];
+  requiredShards: number;
+  safeSignature?: string;
+  authorizationSignatures?: { [serviceName: string]: string }; // Signatures for each service to authorize shard retrieval
+  authData?: AuthData; // Authorization data for shard retrieval
 }
 
 export interface EIP712Message {

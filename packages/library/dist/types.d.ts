@@ -55,17 +55,31 @@ export interface BackupResult {
         serviceNames: string[];
     };
 }
-export interface RestoreRequest {
-    encryptedBlobHash: string;
-    shardIds: string[];
-    requiredShards: number;
-    safeSignature?: string;
+export type AuthorizationType = 'no-auth' | 'mock-signature-2x';
+export interface AuthData {
+    ownerAddress: string;
+    signature?: string;
+}
+export interface ServiceAuthConfig {
+    authType: AuthorizationType;
+    description: string;
 }
 export interface KeyShard {
     id: string;
     data: Uint8Array;
     threshold: number;
     totalShares: number;
+    authorizationAddress?: string;
+}
+export interface RestoreRequest {
+    encryptedBlobHash: string;
+    shardIds: string[];
+    requiredShards: number;
+    safeSignature?: string;
+    authorizationSignatures?: {
+        [serviceName: string]: string;
+    };
+    authData?: AuthData;
 }
 export interface EIP712Message {
     types: Record<string, Array<{

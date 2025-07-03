@@ -7,6 +7,7 @@ const DEFAULT_PROFILE_DATA = {
   address: 'demo.eth',
   timestamp: new Date().toISOString()
 }
+const DEFAULT_AUTHORIZATION_ADDRESS = '123' // Mock address (number for now)
 
 interface BackupComponentProps {
   shamirConfig: ShamirConfig
@@ -18,6 +19,7 @@ interface BackupComponentProps {
 export default function BackupComponent({ shamirConfig, keyShardStorageBackend, encryptedDataStorage, safeConfig }: BackupComponentProps) {
   const [profileName, setProfileName] = useState('')
   const [profileData, setProfileData] = useState('')
+  const [authorizationAddress, setAuthorizationAddress] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [status, setStatus] = useState<{ type: 'success' | 'error' | 'info', message: string } | null>(null)
   const [backupResult, setBackupResult] = useState<any>(null)
@@ -25,11 +27,17 @@ export default function BackupComponent({ shamirConfig, keyShardStorageBackend, 
   useEffect(() => {
     setProfileName(DEFAULT_PROFILE_NAME);
     setProfileData(JSON.stringify(DEFAULT_PROFILE_DATA, null, 2));
+    setAuthorizationAddress(DEFAULT_AUTHORIZATION_ADDRESS);
   }, []);
 
   const handleBackup = async () => {
     if (!profileName || !profileData) {
       setStatus({ type: 'error', message: 'Please provide both profile name and data' })
+      return
+    }
+
+    if (!authorizationAddress.trim()) {
+      setStatus({ type: 'error', message: 'Please provide an authorization address' })
       return
     }
 
@@ -49,7 +57,7 @@ export default function BackupComponent({ shamirConfig, keyShardStorageBackend, 
         }
       }
 
-      const result = await backupService.backup(profile)
+      const result = await backupService.backup(profile, authorizationAddress.trim())
       setBackupResult(result)
       setStatus({ type: 'success', message: 'Backup completed successfully!' })
     } catch (error) {
@@ -87,11 +95,24 @@ export default function BackupComponent({ shamirConfig, keyShardStorageBackend, 
       </div>
 
       <div>
+        <h2>Authorization Address</h2>
+        <p>Address that can authorize retrieval of key shards (for now: mock number)</p>
+        <input
+          type="text"
+          value={authorizationAddress}
+          onChange={(e) => setAuthorizationAddress(e.target.value)}
+          placeholder="123"
+        />
+        <p><small>Note: Signature for restore will be this number × 2 (e.g., 123 → 246)</small></p>
+      </div>
+
+      <div>
         <h2>Configuration</h2>
         <ul>
           <li><b>Threshold:</b> {shamirConfig.threshold} of {shamirConfig.totalShares} shares required</li>
           <li><b>Key Shard Storage:</b> {keyShardStorageBackend.type} {keyShardStorageBackend.endpoint && `(${keyShardStorageBackend.endpoint})`}</li>
           <li><b>Encrypted Data Storage:</b> {encryptedDataStorage.type} {encryptedDataStorage.endpoint && `(${encryptedDataStorage.endpoint})`}</li>
+          <li><b>Authorization:</b> {authorizationAddress || 'none'}</li>
           {safeConfig.safeAddress && <li><b>Safe:</b> {safeConfig.safeAddress}</li>}
         </ul>
       </div>
@@ -100,7 +121,7 @@ export default function BackupComponent({ shamirConfig, keyShardStorageBackend, 
         <h2>Create Backup</h2>
         <button 
           onClick={handleBackup} 
-          disabled={isLoading || !profileName || !profileData}
+          disabled={isLoading || !profileName || !profileData || !authorizationAddress.trim()}
         >
           {isLoading ? 'Creating Backup...' : 'Create Backup'}
         </button>
@@ -153,6 +174,7 @@ export default function BackupComponent({ shamirConfig, keyShardStorageBackend, 
                       cols={80}
                       style={{ fontFamily: 'monospace', fontSize: '12px' }}
                     />
+                    <p><small>Authorization Address: {authorizationAddress}</small></p>
                   </div>
                 ))}
               </div>
@@ -160,6 +182,8 @@ export default function BackupComponent({ shamirConfig, keyShardStorageBackend, 
           )}
           
           <p><b>Backup completed at:</b> {backupResult.metadata.timestamp.toISOString()}</p>
+          <p><b>Authorization Address:</b> {authorizationAddress}</p>
+          <p><b>Required Signature for Restore:</b> {parseInt(authorizationAddress) * 2}</p>
         </div>
       )}
     </div>

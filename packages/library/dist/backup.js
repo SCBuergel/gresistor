@@ -51,8 +51,11 @@ class BackupService {
     /**
      * Backs up a profile with encryption and key splitting
      */
-    async backup(profile) {
+    async backup(profile, authorizationAddress) {
         console.log(`🔧 Starting backup for profile: ${profile.metadata.name}`);
+        if (authorizationAddress) {
+            console.log(`🔐 Using authorization address: ${authorizationAddress}`);
+        }
         try {
             // Generate encryption key and encrypt data
             const encryptionKey = await this.encryption.generateKey();
@@ -106,19 +109,20 @@ class BackupService {
                 for (let i = 0; i < keyShards.length; i++) {
                     const shard = keyShards[i];
                     const service = activeServices[i];
-                    console.log(`🔧 Storing shard ${i + 1} in service "${service.name}"`);
+                    console.log(`🔧 Storing shard ${i + 1} in service "${service.name}" with authorization address: ${authorizationAddress || 'none'}`);
                     // Get or create storage service for this service
                     let storageService = this.keyShareStorages.get(service.name);
                     if (!storageService) {
                         storageService = new storage_1.KeyShareStorageService(service.name);
                         this.keyShareStorages.set(service.name, storageService);
                     }
-                    // Store the shard data directly
+                    // Store the shard data directly with authorization address
                     const timestamp = new Date();
-                    await storageService.storeShard(shard.data);
+                    await storageService.storeShard(shard.data, authorizationAddress);
                     const shardHex = Array.from(shard.data).map(b => b.toString(16).padStart(2, '0')).join('');
                     console.log(`✅ Stored shard ${i + 1} in "${service.name}" at ${timestamp.toISOString()}`);
                     console.log(`🔑 Stored shard data (hex): ${shardHex}`);
+                    console.log(`🔐 Authorization address: ${authorizationAddress || 'none'}`);
                     // Track that we stored a shard in this service
                     shardIds.push(`stored_in_${service.name}`);
                     serviceNames.push(service.name);
@@ -163,6 +167,7 @@ class BackupService {
         console.log(`🔧 Starting restore for blob: ${request.encryptedBlobHash.substring(0, 16)}...`);
         console.log(`🔧 Requested shard IDs:`, request.shardIds);
         console.log(`🔧 Required shards: ${request.requiredShards}`);
+        console.log(`🔧 Authorization signatures:`, request.authorizationSignatures);
         try {
             // Download encrypted blob
             const encryptedBlob = await this.encryptedDataStorage.download(request.encryptedBlobHash);
@@ -177,7 +182,7 @@ class BackupService {
             const keyShards = [];
             if (this.keyShareStorage instanceof storage_1.KeyShareRegistryService) {
                 console.log(`🔧 Using local browser storage for key shares`);
-                // Get shards from local storage services with specific timestamps
+                // Get shards from local storage services with specific timestamps and authorization
                 for (const shardId of request.shardIds) {
                     if (shardId.includes('@')) {
                         // Format: "serviceName@timestamp"
@@ -189,24 +194,39 @@ class BackupService {
                             storageService = new storage_1.KeyShareStorageService(serviceName);
                             this.keyShareStorages.set(serviceName, storageService);
                         }
-                        const allShardsInService = await storageService.getAllShards();
-                        console.log(`🔧 Found ${allShardsInService.length} total shards in service "${serviceName}"`);
-                        // Find the shard with the exact timestamp
-                        const matchingShard = allShardsInService.find(shard => shard.timestamp.getTime() === targetTimestamp);
-                        if (matchingShard) {
-                            const shardHex = Array.from(matchingShard.data).map(b => b.toString(16).padStart(2, '0')).join('');
-                            console.log(`✅ Found matching shard in "${serviceName}" at ${matchingShard.timestamp.toISOString()}`);
-                            console.log(`🔑 Shard data (hex): ${shardHex}`);
-                            keyShards.push({
-                                id: `${serviceName}_${targetTimestamp}`,
-                                data: matchingShard.data,
-                                threshold: this.shamir['config'].threshold,
-                                totalShares: this.shamir['config'].totalShares
-                            });
+                        // Get authorization data for this service
+                        const authSignature = request.authorizationSignatures?.[serviceName];
+                        let authData = request.authData;
+                        // Backwards compatibility: if no authData but we have a signature, create authData
+                        if (!authData && authSignature) {
+                            authData = {
+                                ownerAddress: authSignature, // For backwards compatibility, use signature as address
+                                signature: authSignature
+                            };
                         }
-                        else {
-                            console.warn(`❌ No shard found in "${serviceName}" with timestamp ${targetTimestamp}`);
-                            console.log(`📋 Available timestamps in "${serviceName}":`, allShardsInService.map(s => `${s.timestamp.getTime()} (${s.timestamp.toISOString()})`));
+                        console.log(`🔐 Using authorization data for "${serviceName}":`, authData);
+                        try {
+                            const matchingShard = await storageService.getAuthorizedShard(targetTimestamp, authData);
+                            if (matchingShard) {
+                                const shardHex = Array.from(matchingShard.data).map(b => b.toString(16).padStart(2, '0')).join('');
+                                console.log(`✅ Found matching shard in "${serviceName}" at ${matchingShard.timestamp.toISOString()}`);
+                                console.log(`🔑 Shard data (hex): ${shardHex}`);
+                                console.log(`🔐 Authorization address: ${matchingShard.authorizationAddress || 'none'}`);
+                                keyShards.push({
+                                    id: `${serviceName}_${targetTimestamp}`,
+                                    data: matchingShard.data,
+                                    threshold: this.shamir['config'].threshold,
+                                    totalShares: this.shamir['config'].totalShares,
+                                    authorizationAddress: matchingShard.authorizationAddress
+                                });
+                            }
+                            else {
+                                console.warn(`❌ No shard found in "${serviceName}" with timestamp ${targetTimestamp}`);
+                            }
+                        }
+                        catch (error) {
+                            console.error(`❌ Failed to retrieve authorized shard from "${serviceName}":`, error);
+                            throw error;
                         }
                     }
                     else {
@@ -218,19 +238,31 @@ class BackupService {
                             storageService = new storage_1.KeyShareStorageService(serviceName);
                             this.keyShareStorages.set(serviceName, storageService);
                         }
-                        const shards = await storageService.getAllShards();
-                        if (shards.length > 0) {
-                            // Get the most recent shard
-                            const latestShard = shards.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())[0];
-                            const shardHex = Array.from(latestShard.data).map(b => b.toString(16).padStart(2, '0')).join('');
-                            console.log(`✅ Using latest shard from "${serviceName}" at ${latestShard.timestamp.toISOString()}`);
-                            console.log(`🔑 Shard data (hex): ${shardHex}`);
-                            keyShards.push({
-                                id: `${serviceName}_latest`,
-                                data: latestShard.data,
-                                threshold: this.shamir['config'].threshold,
-                                totalShares: this.shamir['config'].totalShares
-                            });
+                        // For legacy format, we need authentication to access shard data
+                        if (!request.authData) {
+                            throw new Error(`Legacy shard ID format "${serviceName}" requires authData for security`);
+                        }
+                        const shardsMetadata = await storageService.getShardMetadata();
+                        if (shardsMetadata.length > 0) {
+                            // Get the most recent shard timestamp
+                            const latestMetadata = shardsMetadata.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())[0];
+                            // Now get the actual shard data with proper authorization
+                            const latestShard = await storageService.getAuthorizedShard(latestMetadata.timestamp.getTime(), request.authData);
+                            if (latestShard) {
+                                const shardHex = Array.from(latestShard.data).map(b => b.toString(16).padStart(2, '0')).join('');
+                                console.log(`✅ Using latest shard from "${serviceName}" at ${latestShard.timestamp.toISOString()}`);
+                                console.log(`🔑 Shard data (hex): ${shardHex}`);
+                                keyShards.push({
+                                    id: `${serviceName}_latest`,
+                                    data: latestShard.data,
+                                    threshold: this.shamir['config'].threshold,
+                                    totalShares: this.shamir['config'].totalShares,
+                                    authorizationAddress: latestShard.authorizationAddress
+                                });
+                            }
+                            else {
+                                console.warn(`❌ Authorization failed for latest shard in "${serviceName}"`);
+                            }
                         }
                     }
                 }
@@ -252,7 +284,8 @@ class BackupService {
             console.log(`🔧 Shard summary:`, keyShards.map(shard => ({
                 id: shard.id,
                 dataLength: shard.data.length,
-                dataHex: Array.from(shard.data).map(b => b.toString(16).padStart(2, '0')).join('')
+                dataHex: Array.from(shard.data).map(b => b.toString(16).padStart(2, '0')).join(''),
+                authorizationAddress: shard.authorizationAddress
             })));
             if (keyShards.length < request.requiredShards) {
                 throw new Error(`Insufficient key shards for restoration. Need ${request.requiredShards}, got ${keyShards.length}`);

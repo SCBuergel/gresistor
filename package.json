@@ -3,18 +3,26 @@
   "version": "0.1.0",
   "private": true,
   "description": "gresistor - Gnosis Resilient Storage (for wallet profile data)",
+  "type": "module",
   "workspaces": [
     "packages/*",
     "services/*"
   ],
   "scripts": {
+    "dev": "npm run kill-ports && pnpm -r --parallel dev",
+    "dev:clean": "npm run kill-ports && npm run clean:cache && pnpm -r --parallel dev",
+    "kill-dev": "./kill-dev.sh",
+    "kill-ports": "lsof -ti:3000,3001,3002,5173,8080 2>/dev/null | xargs -r kill -9 2>/dev/null || true",
+    "clean:cache": "pnpm -r exec rm -rf node_modules/.vite dist .next",
     "build": "pnpm -r build",
     "build:ui": "pnpm --filter @gresistor/library build && pnpm --filter @gresistor/ui build",
     "deploy": "pnpm run build:ui",
-    "dev": "pnpm -r --parallel dev",
     "test": "pnpm -r test",
     "lint": "pnpm -r lint"
   },
+  "keywords": ["backup", "encryption", "shamir-secret-sharing", "blockchain"],
+  "author": "",
+  "license": "MIT",
   "devDependencies": {
     "@types/node": "^20.0.0",
     "typescript": "^5.0.0"

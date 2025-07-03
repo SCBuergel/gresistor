@@ -12,7 +12,7 @@ export declare class BackupService {
     /**
      * Backs up a profile with encryption and key splitting
      */
-    backup(profile: BackupProfile): Promise<BackupResult>;
+    backup(profile: BackupProfile, authorizationAddress?: string): Promise<BackupResult>;
     /**
      * Restores a profile from encrypted blob and key shards
      */

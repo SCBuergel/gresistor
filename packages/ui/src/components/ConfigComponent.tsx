@@ -1,11 +1,25 @@
 import { useState, useEffect } from 'react'
-import { ShamirConfig, KeyShardStorageBackend, EncryptedDataStorage, SafeConfig } from '@gresistor/library'
+import { ShamirConfig, KeyShardStorageBackend, EncryptedDataStorage, SafeConfig, AuthorizationType } from '@gresistor/library'
 import { KeyShareRegistryService, KeyShareService, KeyShareStorageService } from '@gresistor/library'
 
 // Constants
 const MIN_THRESHOLD = 2
 const MAX_THRESHOLD = 10
 const MAX_TOTAL_SHARES = 20
+
+// Available authorization types
+const AUTHORIZATION_TYPES: { value: AuthorizationType; label: string; description: string }[] = [
+  { 
+    value: 'no-auth', 
+    label: 'No Authorization', 
+    description: 'Open access - no authorization required' 
+  },
+  { 
+    value: 'mock-signature-2x', 
+    label: 'Mock Signature (2x)', 
+    description: 'Mock signature validation (address × 2)' 
+  }
+]
 
 // Utility functions
 function generateUUIDv4(): string {
@@ -49,6 +63,8 @@ export default function ConfigComponent({
   const [newServiceName, setNewServiceName] = useState('')
   const [newServiceDescription, setNewServiceDescription] = useState('')
   const [showCreateForm, setShowCreateForm] = useState(false)
+  const [newServiceAuthType, setNewServiceAuthType] = useState<AuthorizationType>('no-auth')
+  const [status, setStatus] = useState<{ type: 'success' | 'error' | 'info'; message: string } | null>(null)
 
   useEffect(() => {
     if (keyShardStorageBackend.type === 'local-browser') {
@@ -77,7 +93,8 @@ export default function ConfigComponent({
       const newService = {
         name: newServiceName.trim(),
         description: newServiceDescription.trim() || undefined,
-        isActive: true
+        isActive: true,
+        authType: newServiceAuthType
       }
       
       await registry.registerService(newService)
@@ -85,6 +102,7 @@ export default function ConfigComponent({
       setNewServiceDescription('')
       setShowCreateForm(false)
       await loadKeyShareServices()
+      setStatus({ type: 'success', message: `Service "${newServiceName.trim()}" added with ${newServiceAuthType} authorization` })
     } catch (error) {
       console.error('Failed to create key share service:', error)
       if (error instanceof Error && error.message.includes('already exists')) {
@@ -119,6 +137,57 @@ export default function ConfigComponent({
     } catch (error) {
       console.error('Failed to update key share service:', error)
     }
+  }
+
+  const updateServiceAuthType = async (serviceName: string, authType: AuthorizationType) => {
+    try {
+      const registry = new KeyShareRegistryService()
+      await registry.updateServiceAuthType(serviceName, authType)
+      await loadKeyShareServices()
+      setStatus({ type: 'success', message: `Updated "${serviceName}" authorization to ${authType}` })
+    } catch (error) {
+      console.error('Failed to update service auth type:', error)
+      setStatus({ type: 'error', message: `Failed to update authorization: ${error instanceof Error ? error.message : 'Unknown error'}` })
+    }
+  }
+
+  const clearAllData = async () => {
+    if (!window.confirm('This will delete ALL backup data and service configurations. Are you sure?')) {
+      return;
+    }
+
+    try {
+      // Get list of all databases
+      const databases = await window.indexedDB.databases();
+      
+      for (const db of databases) {
+        if (db.name && (db.name.includes('KeyShardService_') || db.name.includes('EncryptedDataStorage') || db.name.includes('KeyShareRegistry'))) {
+          console.log(`Deleting database: ${db.name}`);
+          const deleteRequest = window.indexedDB.deleteDatabase(db.name);
+          await new Promise((resolve, reject) => {
+            deleteRequest.onsuccess = () => resolve(undefined);
+            deleteRequest.onerror = () => reject(deleteRequest.error);
+          });
+        }
+      }
+      
+      // Reload the page to reinitialize everything
+      setStatus({ type: 'success', message: 'All data cleared successfully. Reloading page...' });
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
+    } catch (error) {
+      console.error('Failed to clear data:', error);
+      setStatus({ type: 'error', message: `Failed to clear data: ${error instanceof Error ? error.message : 'Unknown error'}` });
+    }
+  }
+
+  const handleApplyConfig = () => {
+    setShamirConfig(shamirConfig)
+    setKeyShardStorageBackend(keyShardStorageBackend)
+    setEncryptedDataStorage(encryptedDataStorage)
+    setSafeConfig(safeConfig)
+    setStatus({ type: 'success', message: 'Configuration applied successfully' })
   }
 
   return (
@@ -194,6 +263,7 @@ export default function ConfigComponent({
                     <tr>
                       <th>Service Name</th>
                       <th>Description</th>
+                      <th>Authorization</th>
                       <th>Created</th>
                       <th>Status</th>
                       <th>Actions</th>
@@ -204,6 +274,15 @@ export default function ConfigComponent({
                       <tr key={service.name}>
                         <td><b>{service.name}</b></td>
                         <td><small>{service.description || '-'}</small></td>
+                        <td>
+                          <select
+                            value={service.authType}
+                            onChange={(e) => updateServiceAuthType(service.name, e.target.value as AuthorizationType)}
+                          >
+                            <option value="no-auth">No Auth</option>
+                            <option value="mock-signature-2x">Mock Signature (x2)</option>
+                          </select>
+                        </td>
                         <td><small>{service.createdAt.toLocaleString()}</small></td>
                         <td>{service.isActive ? <b>Active</b> : 'Inactive'}</td>
                         <td>
@@ -243,6 +322,19 @@ export default function ConfigComponent({
                       onChange={(e) => setNewServiceDescription(e.target.value)}
                       placeholder="Description of this storage service"
                     />
+                  </div>
+                  <div>
+                    <h4>Authorization Type</h4>
+                    <select
+                      value={newServiceAuthType}
+                      onChange={(e) => setNewServiceAuthType(e.target.value as AuthorizationType)}
+                    >
+                      {AUTHORIZATION_TYPES.map(type => (
+                        <option key={type.value} value={type.value}>
+                          {type.label}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                   <p>
                     <button type="button" onClick={createKeyShareService} disabled={!newServiceName.trim()}>
@@ -382,6 +474,29 @@ export default function ConfigComponent({
           />
         </div>
       </div>
+
+      <div>
+        <h2>Apply Configuration</h2>
+        <button onClick={handleApplyConfig}>
+          Apply All Changes
+        </button>
+      </div>
+
+      <div>
+        <h2>Troubleshooting</h2>
+        <p>If you're experiencing database errors or corruption issues:</p>
+        <button onClick={clearAllData}>
+          Clear All Data & Reset
+        </button>
+        <p><small><strong>Warning:</strong> This will delete all backups, services, and configurations!</small></p>
+      </div>
+
+      {status && (
+        <div>
+          <h3>{status.type === 'error' ? 'Error' : status.type === 'success' ? 'Success' : 'Info'}</h3>
+          <p>{status.message}</p>
+        </div>
+      )}
     </div>
   )
 } 
