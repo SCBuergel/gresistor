@@ -18,9 +18,5 @@ export declare class EncryptionService {
      * Generates a random encryption key
      */
     generateKey(): Promise<Uint8Array>;
-    /**
-     * Generates a random 96-bit nonce
-     */
-    generateNonce(): Uint8Array;
 }
 //# sourceMappingURL=encryption.d.ts.map

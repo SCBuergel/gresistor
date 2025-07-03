@@ -24,39 +24,19 @@ class EncryptionService {
      * Decrypts data using AES-256-GCM
      */
     async decrypt(ciphertext, key, nonce, tag) {
-        console.log('🔧 [ENCRYPTION] decrypt() called');
-        console.log('   📊 Input sizes:', {
-            ciphertext: ciphertext.length,
-            key: key.length,
-            nonce: nonce.length,
-            tag: tag.length
-        });
         try {
             // Import the key
-            console.log('   🔑 [ENCRYPTION] Importing crypto key...');
             const cryptoKey = await crypto.subtle.importKey('raw', key, { name: 'AES-GCM' }, false, ['decrypt']);
-            console.log('   ✅ [ENCRYPTION] Crypto key imported successfully');
             // Combine ciphertext and tag
-            console.log('   🔗 [ENCRYPTION] Combining ciphertext and tag...');
             const encrypted = new Uint8Array(ciphertext.length + tag.length);
             encrypted.set(ciphertext);
             encrypted.set(tag, ciphertext.length);
-            console.log('   ✅ [ENCRYPTION] Combined encrypted data size:', encrypted.length);
             // Decrypt the data
-            console.log('   🔓 [ENCRYPTION] Decrypting data with AES-256-GCM...');
             const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: nonce }, cryptoKey, encrypted);
-            console.log('   ✅ [ENCRYPTION] Decryption successful');
-            console.log('   📏 Decrypted data size:', decrypted.byteLength);
             return new Uint8Array(decrypted);
         }
         catch (error) {
-            console.error('   ❌ [ENCRYPTION] Decryption failed:', error);
-            console.error('   🔍 Error details:', {
-                message: error instanceof Error ? error.message : String(error),
-                name: error instanceof Error ? error.name : 'Unknown',
-                type: error instanceof Error ? error.constructor.name : typeof error
-            });
-            throw error;
+            throw new Error(`Decryption failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
     }
     /**
@@ -64,13 +44,6 @@ class EncryptionService {
      */
     async generateKey() {
         return crypto.getRandomValues(new Uint8Array(32)); // 256-bit key
-    }
-    /**
-     * Generates a random 96-bit nonce
-     */
-    generateNonce() {
-        // Stub implementation
-        throw new Error('generateNonce() not implemented');
     }
 }
 exports.EncryptionService = EncryptionService;

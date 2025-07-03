@@ -1,18 +1,13 @@
 import { useState, useEffect } from 'react'
-import { ShamirConfig, StorageBackend, EncryptedDataStorage, SafeConfig } from '@gresistor/library'
+import { ShamirConfig, KeyShardStorageBackend, EncryptedDataStorage, SafeConfig } from '@gresistor/library'
 import { KeyShareRegistryService, KeyShareService, KeyShareStorageService } from '@gresistor/library'
 
-interface ConfigComponentProps {
-  shamirConfig: ShamirConfig
-  setShamirConfig: (config: ShamirConfig) => void
-  storageBackend: StorageBackend
-  setStorageBackend: (backend: StorageBackend) => void
-  encryptedDataStorage: EncryptedDataStorage
-  setEncryptedDataStorage: (storage: EncryptedDataStorage) => void
-  safeConfig: SafeConfig
-  setSafeConfig: (config: SafeConfig) => void
-}
+// Constants
+const MIN_THRESHOLD = 2
+const MAX_THRESHOLD = 10
+const MAX_TOTAL_SHARES = 20
 
+// Utility functions
 function generateUUIDv4(): string {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
     return crypto.randomUUID();
@@ -28,11 +23,22 @@ function generateUUIDv4(): string {
   ).join('');
 }
 
+interface ConfigComponentProps {
+  shamirConfig: ShamirConfig
+  setShamirConfig: (config: ShamirConfig) => void
+  keyShardStorageBackend: KeyShardStorageBackend
+  setKeyShardStorageBackend: (backend: KeyShardStorageBackend) => void
+  encryptedDataStorage: EncryptedDataStorage
+  setEncryptedDataStorage: (storage: EncryptedDataStorage) => void
+  safeConfig: SafeConfig
+  setSafeConfig: (config: SafeConfig) => void
+}
+
 export default function ConfigComponent({
   shamirConfig,
   setShamirConfig,
-  storageBackend,
-  setStorageBackend,
+  keyShardStorageBackend,
+  setKeyShardStorageBackend,
   encryptedDataStorage,
   setEncryptedDataStorage,
   safeConfig,
@@ -44,21 +50,18 @@ export default function ConfigComponent({
   const [newServiceDescription, setNewServiceDescription] = useState('')
   const [showCreateForm, setShowCreateForm] = useState(false)
 
-  // Load key share services when component mounts or when storage type changes
   useEffect(() => {
-    if (storageBackend.type === 'local-browser') {
+    if (keyShardStorageBackend.type === 'local-browser') {
       loadKeyShareServices()
     }
-  }, [storageBackend.type])
+  }, [keyShardStorageBackend.type])
 
   const loadKeyShareServices = async () => {
     setIsLoadingServices(true)
     try {
       const registry = new KeyShareRegistryService()
       const services = await registry.listServices()
-      // Sort by creation time (newest first)
-      const sortedServices = services.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
-      setKeyShareServices(sortedServices)
+      setKeyShareServices(services.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()))
     } catch (error) {
       console.error('Failed to load key share services:', error)
     } finally {
@@ -71,34 +74,22 @@ export default function ConfigComponent({
 
     try {
       const registry = new KeyShareRegistryService()
-      
       const newService = {
         name: newServiceName.trim(),
         description: newServiceDescription.trim() || undefined,
         isActive: true
       }
       
-      // Optimistically update UI immediately
-      setKeyShareServices(prev => [...prev, {
-        ...newService,
-        createdAt: new Date()
-      }])
+      await registry.registerService(newService)
       setNewServiceName('')
       setNewServiceDescription('')
       setShowCreateForm(false)
-      
-      await registry.registerService(newService)
-      
-      // Reload to ensure consistency (in case optimistic update was wrong)
       await loadKeyShareServices()
     } catch (error) {
       console.error('Failed to create key share service:', error)
-      // Show error message if name already exists
       if (error instanceof Error && error.message.includes('already exists')) {
         alert(error.message)
       }
-      // Reload on error to restore correct state
-      await loadKeyShareServices()
     }
   }
 
@@ -108,44 +99,25 @@ export default function ConfigComponent({
     }
 
     try {
-      // Optimistically update UI immediately
-      setKeyShareServices(prev => prev.filter(service => service.name !== serviceName))
-      
       const registry = new KeyShareRegistryService()
       await registry.deleteService(serviceName)
       
-      // Also delete the database
       const storageService = new KeyShareStorageService(serviceName)
       await storageService.deleteDatabase()
       
-      // Reload to ensure consistency (in case optimistic update was wrong)
       await loadKeyShareServices()
     } catch (error) {
       console.error('Failed to delete key share service:', error)
-      // Reload on error to restore correct state
-      await loadKeyShareServices()
     }
   }
 
   const toggleServiceActive = async (service: KeyShareService) => {
     try {
-      // Optimistically update UI immediately
-      setKeyShareServices(prev => prev.map(s => 
-        s.name === service.name ? { ...s, isActive: !s.isActive } : s
-      ))
-      
       const registry = new KeyShareRegistryService()
-      await registry.updateService({
-        ...service,
-        isActive: !service.isActive
-      })
-      
-      // Reload to ensure consistency (in case optimistic update was wrong)
+      await registry.updateService({ ...service, isActive: !service.isActive })
       await loadKeyShareServices()
     } catch (error) {
       console.error('Failed to update key share service:', error)
-      // Reload on error to restore correct state
-      await loadKeyShareServices()
     }
   }
 
@@ -159,12 +131,12 @@ export default function ConfigComponent({
           <h2>Threshold (N - shares needed to restore)</h2>
           <input
             type="number"
-            min="2"
-            max="10"
+            min={MIN_THRESHOLD}
+            max={MAX_THRESHOLD}
             value={shamirConfig.threshold}
             onChange={(e) => setShamirConfig({
               ...shamirConfig,
-              threshold: parseInt(e.target.value) || 2
+              threshold: parseInt(e.target.value) || MIN_THRESHOLD
             })}
           />
         </div>
@@ -174,7 +146,7 @@ export default function ConfigComponent({
           <input
             type="number"
             min={shamirConfig.threshold}
-            max="20"
+            max={MAX_TOTAL_SHARES}
             value={shamirConfig.totalShares}
             onChange={(e) => setShamirConfig({
               ...shamirConfig,
@@ -183,23 +155,21 @@ export default function ConfigComponent({
           />
         </div>
 
-        <p>
-          <b>Current:</b> {shamirConfig.threshold} of {shamirConfig.totalShares} shares required for recovery
-        </p>
+        <p><b>Current:</b> {shamirConfig.threshold} of {shamirConfig.totalShares} shares required for recovery</p>
       </div>
 
       <hr />
 
       <div>
-        <h1>Key Share Storage</h1>
+        <h1>Key Shard Storage</h1>
         <p>Configure where key shards are stored (separate from encrypted data)</p>
         
         <div>
           <h2>Storage Type</h2>
           <select
-            value={storageBackend.type}
-            onChange={(e) => setStorageBackend({
-              ...storageBackend,
+            value={keyShardStorageBackend.type}
+            onChange={(e) => setKeyShardStorageBackend({
+              ...keyShardStorageBackend,
               type: e.target.value as 'swarm' | 'ipfs' | 'local-browser'
             })}
           >
@@ -209,12 +179,9 @@ export default function ConfigComponent({
           </select>
         </div>
 
-        {storageBackend.type === 'local-browser' ? (
+        {keyShardStorageBackend.type === 'local-browser' ? (
           <div>
-            <p>
-              <b>Local Browser Storage:</b> Key shards will be stored in separate IndexedDB databases. 
-              You can create multiple storage services for redundancy.
-            </p>
+            <p><b>Local Browser Storage:</b> Key shards will be stored in separate IndexedDB databases. You can create multiple storage services for redundancy.</p>
 
             <div>
               <h2>Key Share Services</h2>
@@ -240,17 +207,11 @@ export default function ConfigComponent({
                         <td><small>{service.createdAt.toLocaleString()}</small></td>
                         <td>{service.isActive ? <b>Active</b> : 'Inactive'}</td>
                         <td>
-                          <button
-                            type="button"
-                            onClick={() => toggleServiceActive(service)}
-                          >
+                          <button type="button" onClick={() => toggleServiceActive(service)}>
                             {service.isActive ? 'Deactivate' : 'Activate'}
                           </button>
                           {' '}
-                          <button
-                            type="button"
-                            onClick={() => deleteKeyShareService(service.name)}
-                          >
+                          <button type="button" onClick={() => deleteKeyShareService(service.name)}>
                             Delete
                           </button>
                         </td>
@@ -284,39 +245,26 @@ export default function ConfigComponent({
                     />
                   </div>
                   <p>
-                    <button
-                      type="button"
-                      onClick={createKeyShareService}
-                      disabled={!newServiceName.trim()}
-                    >
+                    <button type="button" onClick={createKeyShareService} disabled={!newServiceName.trim()}>
                       Create Service
                     </button>
                     {' '}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowCreateForm(false)
-                        setNewServiceName('')
-                        setNewServiceDescription('')
-                      }}
-                    >
+                    <button type="button" onClick={() => {
+                      setShowCreateForm(false)
+                      setNewServiceName('')
+                      setNewServiceDescription('')
+                    }}>
                       Cancel
                     </button>
                   </p>
                 </div>
               ) : (
-                <button
-                  type="button"
-                  onClick={() => setShowCreateForm(true)}
-                >
+                <button type="button" onClick={() => setShowCreateForm(true)}>
                   Create New Service
                 </button>
               )}
 
-              <p>
-                <b>Note:</b> Only active services will be used for storing key shards. 
-                You can create multiple services for redundancy and toggle them on/off as needed.
-              </p>
+              <p><b>Note:</b> Only active services will be used for storing key shards. You can create multiple services for redundancy and toggle them on/off as needed.</p>
             </div>
           </div>
         ) : (
@@ -325,9 +273,9 @@ export default function ConfigComponent({
               <h2>Endpoint URL</h2>
               <input
                 type="text"
-                value={storageBackend.endpoint}
-                onChange={(e) => setStorageBackend({
-                  ...storageBackend,
+                value={keyShardStorageBackend.endpoint}
+                onChange={(e) => setKeyShardStorageBackend({
+                  ...keyShardStorageBackend,
                   endpoint: e.target.value
                 })}
                 placeholder="http://localhost:8080"
@@ -338,9 +286,9 @@ export default function ConfigComponent({
               <h2>API Key (optional)</h2>
               <input
                 type="password"
-                value={storageBackend.apiKey || ''}
-                onChange={(e) => setStorageBackend({
-                  ...storageBackend,
+                value={keyShardStorageBackend.apiKey || ''}
+                onChange={(e) => setKeyShardStorageBackend({
+                  ...keyShardStorageBackend,
                   apiKey: e.target.value || undefined
                 })}
                 placeholder="Your API key"
@@ -400,20 +348,13 @@ export default function ConfigComponent({
             </div>
           </div>
         )}
-
-        {encryptedDataStorage.type === 'local-browser' && (
-          <p>
-            <b>Local Browser Storage:</b> Encrypted data will be stored in your browser's IndexedDB database. 
-            This data is only accessible from this browser and will persist until you clear your browser data.
-          </p>
-        )}
       </div>
 
       <hr />
 
       <div>
-        <h1>Safe Configuration</h1>
-        <p>Configure Safe for EIP-712 authentication of shard requests</p>
+        <h1>Safe Authentication</h1>
+        <p>Configure Safe wallet for enhanced security (optional)</p>
         
         <div>
           <h2>Safe Address</h2>
@@ -430,21 +371,16 @@ export default function ConfigComponent({
 
         <div>
           <h2>Chain ID</h2>
-          <select
+          <input
+            type="number"
             value={safeConfig.chainId}
             onChange={(e) => setSafeConfig({
               ...safeConfig,
-              chainId: parseInt(e.target.value)
+              chainId: parseInt(e.target.value) || 1
             })}
-          >
-            <option value="1">Ethereum Mainnet (1)</option>
-            <option value="5">Goerli Testnet (5)</option>
-            <option value="100">Gnosis Chain (100)</option>
-            <option value="137">Polygon (137)</option>
-          </select>
+            placeholder="100"
+          />
         </div>
-
-
       </div>
     </div>
   )

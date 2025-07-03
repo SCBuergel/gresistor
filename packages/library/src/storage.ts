@@ -1,4 +1,4 @@
-import { StorageBackend, TransportConfig } from './types';
+import { KeyShardStorageBackend, TransportConfig } from './types';
 
 // TypeScript declarations for IndexedDB
 declare global {
@@ -258,11 +258,11 @@ export class KeyShareStorageService {
 }
 
 export class StorageService {
-  private backend: StorageBackend;
+  private backend: KeyShardStorageBackend;
   private transport: TransportConfig;
 
   constructor(
-    backend: StorageBackend = { type: 'swarm', endpoint: 'http://localhost:8080' },
+    backend: KeyShardStorageBackend = { type: 'swarm', endpoint: 'http://localhost:8080' },
     transport: TransportConfig = { method: 'plain-http' }
   ) {
     this.backend = backend;

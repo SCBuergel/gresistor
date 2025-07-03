@@ -18,7 +18,7 @@ export interface ShamirConfig {
   totalShares: number;
 }
 
-export interface StorageBackend {
+export interface KeyShardStorageBackend {
   type: 'swarm' | 'ipfs' | 'local-browser' | 'memory';
   endpoint?: string;
   apiKey?: string;
@@ -55,6 +55,12 @@ export interface BackupResult {
   metadata: {
     timestamp: Date;
     config: ShamirConfig;
+  };
+  cryptoDetails?: {
+    encryptedDataHex: string;
+    encryptionKeyHex: string;
+    shardsHex: string[];
+    serviceNames: string[];
   };
 }
 

@@ -1,4 +1,4 @@
-import { StorageBackend, TransportConfig } from './types';
+import { KeyShardStorageBackend, TransportConfig } from './types';
 declare global {
     interface Window {
         indexedDB: IDBFactory;
@@ -65,7 +65,7 @@ export declare class KeyShareStorageService {
 export declare class StorageService {
     private backend;
     private transport;
-    constructor(backend?: StorageBackend, transport?: TransportConfig);
+    constructor(backend?: KeyShardStorageBackend, transport?: TransportConfig);
     /**
      * Uploads data to the configured storage backend
      */
