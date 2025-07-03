@@ -74,6 +74,12 @@ export interface KeyShard {
   authorizationAddress?: string;
 }
 
+export interface StoredKeyShardData {
+  data: Uint8Array;
+  timestamp: Date;
+  authorizationAddress?: string;
+}
+
 export interface AuthData {
   ownerAddress: string;
   signature?: string;

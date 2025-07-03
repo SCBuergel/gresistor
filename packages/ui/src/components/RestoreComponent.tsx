@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { EncryptionService, ShamirSecretSharing, EncryptedDataStorageService, KeyShareStorageService, ShamirConfig, KeyShardStorageBackend, EncryptedDataStorage, SafeConfig, AuthData, AuthorizationType, KeyShard } from '@gresistor/library'
+import { EncryptionService, ShamirSecretSharing, EncryptedDataStorageService, KeyShareStorageService, ShamirConfig, KeyShardStorageBackend, EncryptedDataStorage, SafeConfig, AuthData, AuthorizationType, KeyShard, StoredKeyShardData } from '@gresistor/library'
 import { KeyShareRegistryService } from '@gresistor/library'
 
 interface RestoreComponentProps {
@@ -28,7 +28,7 @@ interface TestProfile {
 
 interface ServiceShards {
   serviceName: string
-  shards: KeyShard[]
+  shards: StoredKeyShardData[]
 }
 
 export default function RestoreComponent({ shamirConfig, keyShardStorageBackend, encryptedDataStorage, safeConfig }: RestoreComponentProps) {
@@ -235,7 +235,7 @@ export default function RestoreComponent({ shamirConfig, keyShardStorageBackend,
   }
 
   const getSelectedShardsList = () => {
-    const selected: Array<{serviceName: string, shard: KeyShard}> = []
+    const selected: Array<{serviceName: string, shard: StoredKeyShardData}> = []
     
     for (const [key, isSelected] of Object.entries(selectedShards)) {
       if (isSelected) {
@@ -449,7 +449,7 @@ export default function RestoreComponent({ shamirConfig, keyShardStorageBackend,
                       </label>
                       <div style={{ marginLeft: '20px', fontSize: '0.8em' }}>
                         <p>Size: {shard.data.length} bytes</p>
-                        <p>Owner: {shard.ownerAddress}</p>
+                        <p>Owner: {shard.authorizationAddress || 'Not specified'}</p>
                       </div>
                     </div>
                   ))}
