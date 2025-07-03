@@ -2,7 +2,7 @@
 export { BackupService } from './backup';
 export { EncryptionService } from './encryption';
 export { ShamirSecretSharing } from './shamir';
-export { StorageService, BrowserStorageService, KeyShareRegistryService, KeyShareStorageService } from './storage';
+export { StorageService, BrowserStorageService, KeyShareRegistryService, KeyShareStorageService, EncryptedDataStorageService, SimpleKeyShardStorage } from './storage';
 export { SafeAuthService } from './safe-auth';
 
 // Types

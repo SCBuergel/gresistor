@@ -175,7 +175,9 @@ export class BackupService {
       
       return {
         encryptedBlobHash,
+        encryptedBlob, // Include the actual encrypted blob data
         shardIds,
+        keyShards, // Include the actual key shard data for minimal usage
         metadata: {
           timestamp: new Date(),
           config: this.shamir['config']
@@ -198,14 +200,23 @@ export class BackupService {
    * Restores a profile from encrypted blob and key shards
    */
   async restore(request: RestoreRequest): Promise<BackupProfile> {
-    console.log(`🔧 Starting restore for blob: ${request.encryptedBlobHash.substring(0, 16)}...`);
+    console.log(`🔧 Starting restore...`);
     console.log(`🔧 Requested shard IDs:`, request.shardIds);
     console.log(`🔧 Required shards: ${request.requiredShards}`);
     console.log(`🔧 Authorization signatures:`, request.authorizationSignatures);
     
     try {
-      // Download encrypted blob
-      const encryptedBlob = await this.encryptedDataStorage.download(request.encryptedBlobHash);
+      // Get encrypted blob - either directly provided or download from storage
+      let encryptedBlob: Uint8Array;
+      if (request.encryptedBlob) {
+        console.log(`🔧 Using directly provided encrypted blob (${request.encryptedBlob.length} bytes)`);
+        encryptedBlob = request.encryptedBlob;
+      } else if (request.encryptedBlobHash) {
+        console.log(`🔧 Downloading encrypted blob with hash: ${request.encryptedBlobHash.substring(0, 16)}...`);
+        encryptedBlob = await this.encryptedDataStorage.download(request.encryptedBlobHash);
+      } else {
+        throw new Error('Either encryptedBlob or encryptedBlobHash must be provided');
+      }
       
       // Parse encrypted blob structure
       const view = new DataView(encryptedBlob.buffer);
@@ -217,9 +228,13 @@ export class BackupService {
       const tag = encryptedBlob.slice(4 + ciphertextLength + nonceLength);
       
       // Retrieve and reconstruct key shards
-      const keyShards: KeyShard[] = [];
+      let keyShards: KeyShard[] = [];
       
-      if (this.keyShareStorage instanceof KeyShareRegistryService) {
+      // Use directly provided key shards if available (for minimal usage)
+      if (request.keyShards) {
+        console.log(`🔧 Using directly provided key shards (${request.keyShards.length} shards)`);
+        keyShards = request.keyShards;
+      } else if (this.keyShareStorage instanceof KeyShareRegistryService) {
         console.log(`🔧 Using local browser storage for key shares`);
         
         // Get shards from local storage services with specific timestamps and authorization

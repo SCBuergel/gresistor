@@ -202,11 +202,33 @@ export class KeyShareStorageService {
   private serviceName: string;
   private registry: KeyShareRegistryService;
   private dbPromise: Promise<IDBDatabase> | null = null;
+  private authConfig: ServiceAuthConfig;
 
-  constructor(serviceName: string) {
+  constructor(serviceName: string, authConfig: ServiceAuthConfig = { authType: 'no-auth', description: 'No authentication required' }) {
     this.dbName = `KeyShardService_${serviceName}`;
     this.serviceName = serviceName;
+    this.authConfig = authConfig;
     this.registry = new KeyShareRegistryService();
+    
+    // Register this service with the provided auth config
+    this.initializeService();
+  }
+
+  /**
+   * Initialize the service in the registry
+   */
+  private async initializeService(): Promise<void> {
+    try {
+      await this.registry.registerService({
+        name: this.serviceName,
+        description: this.authConfig.description,
+        authType: this.authConfig.authType,
+        isActive: true
+      });
+    } catch (error) {
+      // Service may already exist, ignore the error
+      console.log(`Service "${this.serviceName}" already exists or couldn't be created:`, error);
+    }
   }
 
   private async getDB(): Promise<IDBDatabase> {
@@ -889,5 +911,220 @@ export class BrowserStorageService {
       request.onsuccess = () => resolve();
       request.onerror = () => reject(request.error);
     });
+  }
+}
+
+/**
+ * Simplified service for encrypted data storage
+ */
+export class EncryptedDataStorageService {
+  private storage: InMemoryStorageService | BrowserStorageService | StorageService;
+
+  constructor(config: { type: 'memory' | 'local-browser' | 'swarm' | 'ipfs'; endpoint?: string; apiKey?: string } = { type: 'memory' }) {
+    if (config.type === 'memory') {
+      this.storage = new InMemoryStorageService();
+    } else if (config.type === 'local-browser') {
+      // Check if we're in a browser environment
+      if (typeof window !== 'undefined' && window.indexedDB) {
+        this.storage = new BrowserStorageService();
+      } else {
+        // Use in-memory storage for Node.js testing
+        this.storage = new InMemoryStorageService();
+      }
+    } else {
+      const backend: KeyShardStorageBackend = {
+        type: config.type,
+        endpoint: config.endpoint || 'http://localhost:8080',
+        apiKey: config.apiKey
+      };
+      this.storage = new StorageService(backend);
+    }
+  }
+
+  /**
+   * Store encrypted data and return content hash
+   */
+  async store(data: Uint8Array): Promise<string> {
+    return await this.storage.upload(data);
+  }
+
+  /**
+   * Retrieve encrypted data by hash
+   */
+  async retrieve(hash: string): Promise<Uint8Array> {
+    return await this.storage.download(hash);
+  }
+
+  /**
+   * Check if data exists for given hash
+   */
+  async exists(hash: string): Promise<boolean> {
+    return await this.storage.exists(hash);
+  }
+
+  /**
+   * Get metadata about stored data
+   */
+  async getMetadata(hash: string): Promise<{ size: number; timestamp: Date }> {
+    return await this.storage.getMetadata(hash);
+  }
+
+  /**
+   * List all stored data hashes (if supported)
+   */
+  async listHashes(): Promise<string[]> {
+    if (this.storage instanceof InMemoryStorageService || this.storage instanceof BrowserStorageService) {
+      return await this.storage.listHashes();
+    }
+    throw new Error('listHashes() not supported for this storage type');
+  }
+
+  /**
+   * Clear all stored data (if supported)
+   */
+  async clear(): Promise<void> {
+    if (this.storage instanceof InMemoryStorageService || this.storage instanceof BrowserStorageService) {
+      await this.storage.clear();
+    } else {
+      throw new Error('clear() not supported for this storage type');
+    }
+  }
+}
+
+/**
+ * Simple Node.js-compatible key shard storage service
+ * Alternative to KeyShareStorageService for environments without IndexedDB
+ */
+export class SimpleKeyShardStorage {
+  private serviceName: string;
+  private authConfig: ServiceAuthConfig;
+  private shards: Map<string, { data: Uint8Array; timestamp: Date; authorizationAddress?: string }>;
+
+  constructor(serviceName: string, authConfig: ServiceAuthConfig = { authType: 'no-auth', description: 'No authentication required' }) {
+    this.serviceName = serviceName;
+    this.authConfig = authConfig;
+    this.shards = new Map(); // Store shards in memory
+  }
+
+  /**
+   * Store a key shard with optional authorization address
+   */
+  async storeShard(data: Uint8Array, authorizationAddress?: string): Promise<string> {
+    const timestamp = Date.now();
+    const shardId = `shard_${timestamp}_${Math.random().toString(36).substring(2)}`;
+    
+    this.shards.set(shardId, {
+      data: new Uint8Array(data),
+      timestamp: new Date(timestamp),
+      authorizationAddress: authorizationAddress || undefined
+    });
+    
+    return shardId;
+  }
+
+  /**
+   * Get all shards with authorization validation
+   */
+  async getAllShardsWithAuth(authData?: AuthData): Promise<Array<{ data: Uint8Array; timestamp: Date; authorizationAddress?: string }>> {
+    // Validate authorization based on service auth type
+    if (!this.validateAuthData(this.authConfig.authType, authData)) {
+      throw new Error(`Invalid authorization data for service auth type: ${this.authConfig.authType}`);
+    }
+
+    return Array.from(this.shards.values());
+  }
+
+  /**
+   * Get all shards (returns only metadata for security)
+   */
+  async getAllShards(): Promise<Array<{ data: Uint8Array; timestamp: Date; authorizationAddress?: string }>> {
+    return Array.from(this.shards.values());
+  }
+
+  /**
+   * Get latest shard with authorization validation
+   */
+  async getLatestShardWithAuth(authData?: AuthData): Promise<{ data: Uint8Array; timestamp: Date; authorizationAddress?: string } | null> {
+    const shards = await this.getAllShardsWithAuth(authData);
+    if (shards.length === 0) return null;
+    
+    return shards.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())[0];
+  }
+
+  /**
+   * Get latest shard without auth (for convenience in examples)
+   */
+  async getLatestShard(): Promise<{ data: Uint8Array; timestamp: Date; authorizationAddress?: string } | null> {
+    const shards = Array.from(this.shards.values());
+    if (shards.length === 0) return null;
+    
+    return shards.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())[0];
+  }
+
+  /**
+   * Get shard metadata only (for discovery purposes - no sensitive data exposed)
+   */
+  async getShardMetadata(): Promise<Array<{ timestamp: Date; authorizationAddress?: string; dataSize: number }>> {
+    return Array.from(this.shards.values()).map(shard => ({
+      timestamp: shard.timestamp,
+      authorizationAddress: shard.authorizationAddress,
+      dataSize: shard.data.length
+    }));
+  }
+
+  /**
+   * Get service name
+   */
+  getServiceName(): string {
+    return this.serviceName;
+  }
+
+  /**
+   * Get auth configuration
+   */
+  getAuthConfig(): ServiceAuthConfig {
+    return { ...this.authConfig };
+  }
+
+  /**
+   * Validate authorization data based on auth type
+   */
+  private validateAuthData(authType: AuthorizationType, authData?: AuthData): boolean {
+    console.log(`🔐 Validating auth data for service "${this.serviceName}" (${authType}):`, authData);
+    
+    switch (authType) {
+      case 'no-auth':
+        console.log(`✅ No authentication required for service "${this.serviceName}"`);
+        return true;
+        
+      case 'mock-signature-2x':
+        if (!authData || !authData.ownerAddress || !authData.signature) {
+          console.log(`❌ Mock signature auth requires ownerAddress and signature for service "${this.serviceName}"`);
+          return false;
+        }
+        
+        // Mock validation: signature should be ownerAddress × 2
+        const expectedSignature = (parseInt(authData.ownerAddress) * 2).toString();
+        const isValid = authData.signature === expectedSignature;
+        
+        if (isValid) {
+          console.log(`✅ Mock signature validation passed for service "${this.serviceName}": ${authData.ownerAddress} × 2 = ${expectedSignature}`);
+        } else {
+          console.log(`❌ Mock signature validation failed for service "${this.serviceName}": expected ${expectedSignature}, got ${authData.signature}`);
+        }
+        
+        return isValid;
+        
+      default:
+        console.log(`❌ Unknown auth type "${authType}" for service "${this.serviceName}"`);
+        return false;
+    }
+  }
+
+  /**
+   * Clear all shards
+   */
+  async clear(): Promise<void> {
+    this.shards.clear();
   }
 } 

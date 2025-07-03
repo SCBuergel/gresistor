@@ -38,7 +38,7 @@ export interface KeyShareStorage {
 }
 
 export interface TransportConfig {
-  method: 'plain-http' | 'https' | 'wss';
+  method: 'plain-http' | 'ipfs-gateway' | 'swarm-gateway';
   timeout?: number;
   retries?: number;
 }
@@ -51,7 +51,9 @@ export interface SafeConfig {
 
 export interface BackupResult {
   encryptedBlobHash: string;
+  encryptedBlob?: Uint8Array;     // Add for direct usage without storage
   shardIds: string[];
+  keyShards?: KeyShard[];         // Add for direct shard data usage without storage
   metadata: {
     timestamp: Date;
     config: ShamirConfig;
@@ -64,29 +66,31 @@ export interface BackupResult {
   };
 }
 
-export type AuthorizationType = 'no-auth' | 'mock-signature-2x';
+export interface KeyShard {
+  id: string;
+  data: Uint8Array;
+  threshold: number;
+  totalShares: number;
+  authorizationAddress?: string;
+}
 
 export interface AuthData {
   ownerAddress: string;
-  signature?: string; // Only for signature-based auth types
+  signature?: string;
 }
+
+export type AuthorizationType = 'no-auth' | 'mock-signature-2x';
 
 export interface ServiceAuthConfig {
   authType: AuthorizationType;
   description: string;
 }
 
-export interface KeyShard {
-  id: string;
-  data: Uint8Array;
-  threshold: number;
-  totalShares: number;
-  authorizationAddress?: string; // Address that can authorize retrieval of this shard
-}
-
 export interface RestoreRequest {
-  encryptedBlobHash: string;
+  encryptedBlobHash?: string;     // Make optional for direct blob usage
+  encryptedBlob?: Uint8Array;     // Add for direct usage without storage
   shardIds: string[];
+  keyShards?: KeyShard[];         // Add for direct shard data usage without storage
   requiredShards: number;
   safeSignature?: string;
   authorizationSignatures?: { [serviceName: string]: string }; // Signatures for each service to authorize shard retrieval

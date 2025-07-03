@@ -51,10 +51,10 @@ jobs:
         run: pnpm install --no-frozen-lockfile
         
       - name: Build library
-        run: pnpm --filter @resilient-backup/library build
+        run: pnpm --filter @gresistor/library build
         
       - name: Build UI
-        run: pnpm --filter @resilient-backup/ui build
+        run: pnpm --filter @gresistor/ui build
         
       - name: Setup Pages
         uses: actions/configure-pages@v4
