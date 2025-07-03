@@ -161,7 +161,12 @@ export default function ConfigComponent({
       const databases = await window.indexedDB.databases();
       
       for (const db of databases) {
-        if (db.name && (db.name.includes('KeyShardService_') || db.name.includes('EncryptedDataStorage') || db.name.includes('KeyShareRegistry'))) {
+        if (db.name && (
+          db.name.includes('KeyShardService_') || 
+          db.name.includes('KeyShareRegistry') || 
+          db.name === 'ResilientBackupDB' ||
+          db.name === 'KeyShareRegistryDB'
+        )) {
           console.log(`Deleting database: ${db.name}`);
           const deleteRequest = window.indexedDB.deleteDatabase(db.name);
           await new Promise((resolve, reject) => {
