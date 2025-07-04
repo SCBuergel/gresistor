@@ -379,6 +379,7 @@ export class KeyShareStorageService {
 
   /**
    * Retrieves all key shards with authorization validation
+   * Only returns shards that match the provided authorization address
    */
   async getAllShardsWithAuth(authData?: AuthData): Promise<Array<{ data: Uint8Array; timestamp: Date; authorizationAddress?: string }>> {
     const authConfig = await this.getAuthConfig();
@@ -397,12 +398,36 @@ export class KeyShareStorageService {
         const request = store.getAll();
         
         request.onsuccess = () => {
-          const results = request.result.map(item => ({
+          const allShards = request.result.map(item => ({
             data: new Uint8Array(item.data),
             timestamp: new Date(item.timestamp),
             authorizationAddress: item.authorizationAddress
           }));
-          resolve(results);
+          
+          // SECURITY FIX: Filter shards to only return those matching the authorization address
+          const authorizedShards = allShards.filter(shard => {
+            // If no authData provided, only return shards with no authorization address
+            if (!authData) {
+              return !shard.authorizationAddress;
+            }
+            
+            // If shard has no authorization address, it's accessible to anyone
+            if (!shard.authorizationAddress) {
+              return true;
+            }
+            
+            // Check if the provided auth data matches the shard's authorization address
+            const isValidAuth = this.validateShardAuth(shard.authorizationAddress, authData, authConfig.authType);
+            if (isValidAuth) {
+              console.log(`✅ Access granted to shard with address ${shard.authorizationAddress}`);
+            } else {
+              console.log(`🔒 Access denied to shard with address ${shard.authorizationAddress} (provided: ${authData.ownerAddress})`);
+            }
+            return isValidAuth;
+          });
+          
+          console.log(`🔐 Filtered ${allShards.length} total shards to ${authorizedShards.length} authorized shards for address: ${authData?.ownerAddress || 'none'}`);
+          resolve(authorizedShards);
         };
         
         request.onerror = () => reject(request.error);
@@ -1024,6 +1049,7 @@ export class SimpleKeyShardStorage {
 
   /**
    * Get all shards with authorization validation
+   * Only returns shards that match the provided authorization address
    */
   async getAllShardsWithAuth(authData?: AuthData): Promise<Array<{ data: Uint8Array; timestamp: Date; authorizationAddress?: string }>> {
     // Validate authorization based on service auth type
@@ -1031,7 +1057,44 @@ export class SimpleKeyShardStorage {
       throw new Error(`Invalid authorization data for service auth type: ${this.authConfig.authType}`);
     }
 
-    return Array.from(this.shards.values());
+    const allShards = Array.from(this.shards.values());
+    
+    // SECURITY FIX: Filter shards to only return those matching the authorization address
+    const authorizedShards = allShards.filter(shard => {
+      // If no authData provided, only return shards with no authorization address
+      if (!authData) {
+        return !shard.authorizationAddress;
+      }
+      
+      // If shard has no authorization address, it's accessible to anyone
+      if (!shard.authorizationAddress) {
+        return true;
+      }
+      
+      // Check if the provided auth data matches the shard's authorization address
+      if (authData.ownerAddress !== shard.authorizationAddress) {
+        console.log(`🔒 Access denied to shard with address ${shard.authorizationAddress} (provided: ${authData.ownerAddress})`);
+        return false;
+      }
+      
+      // For signature-based auth, validate the signature matches
+      if (this.authConfig.authType === 'mock-signature-2x' && authData.signature) {
+        const addressNum = parseInt(shard.authorizationAddress);
+        const signatureNum = parseInt(authData.signature);
+        const expectedSignature = addressNum * 2;
+        
+        if (signatureNum !== expectedSignature) {
+          console.log(`🔒 Signature validation failed for shard with address ${shard.authorizationAddress}`);
+          return false;
+        }
+      }
+      
+      console.log(`✅ Access granted to shard with address ${shard.authorizationAddress}`);
+      return true;
+    });
+    
+    console.log(`🔐 Filtered ${allShards.length} total shards to ${authorizedShards.length} authorized shards for address: ${authData?.ownerAddress || 'none'}`);
+    return authorizedShards;
   }
 
   /**

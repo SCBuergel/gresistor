@@ -60,7 +60,10 @@ async function main() {
       totalShards: 3
     });
     
-    const shard2 = await keyShardServices[1].getLatestShardWithAuth(authData);
+    const shard2 = await keyShardServices[1].getLatestShardWithAuth({
+      ownerAddress: '123',
+      signature: '246'
+    });
     retrievedShards.push({
       id: 'shard_2',
       data: shard2.data,

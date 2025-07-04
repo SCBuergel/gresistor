@@ -139,7 +139,10 @@ async function main() {
   // Get shard from service-2 (mock-signature-2x)
   console.log('   🔍 Getting shards from service-2 (mock-signature-2x)...');
   console.log(`   🔐 Authenticating with owner=${authData.ownerAddress}, signature=${authData.signature}...`);
-  const shard2 = await keyShardServices[1].getLatestShardWithAuth(authData);
+      const shard2 = await keyShardServices[1].getLatestShardWithAuth({
+      ownerAddress: '123',
+      signature: '246'
+    });
   console.log('   ✅ Retrieved shard 2 with successful authentication');
   retrievedShards.push({
     id: 'shard_2',
