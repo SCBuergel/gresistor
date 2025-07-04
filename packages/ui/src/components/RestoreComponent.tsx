@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { EncryptionService, ShamirSecretSharing, EncryptedDataStorageService, KeyShareStorageService, ShamirConfig, KeyShardStorageBackend, EncryptedDataStorage, SafeConfig, AuthData, AuthorizationType, KeyShard, StoredKeyShardData } from '@gresistor/library'
+import { EncryptionService, ShamirSecretSharing, EncryptedDataStorageService, KeyShareStorageService, ShamirConfig, KeyShardStorageBackend, EncryptedDataStorage, SafeConfig, AuthData, AuthorizationType, KeyShard } from '@gresistor/library'
 import { KeyShareRegistryService } from '@gresistor/library'
 
 interface RestoreComponentProps {
@@ -19,6 +19,9 @@ interface ServiceAuthInfo {
   serviceName: string
   authType: AuthorizationType
   description: string
+  isAuthenticated: boolean
+  authData?: AuthData
+  authError?: string
 }
 
 interface TestProfile {
@@ -28,7 +31,7 @@ interface TestProfile {
 
 interface ServiceShards {
   serviceName: string
-  shards: StoredKeyShardData[]
+  shards: KeyShard[]
 }
 
 export default function RestoreComponent({ shamirConfig, keyShardStorageBackend, encryptedDataStorage, safeConfig }: RestoreComponentProps) {
@@ -39,12 +42,12 @@ export default function RestoreComponent({ shamirConfig, keyShardStorageBackend,
   const [status, setStatus] = useState<{ type: 'success' | 'error' | 'info'; message: string } | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [restoredProfile, setRestoredProfile] = useState<TestProfile | null>(null)
-  const [ownerAddress, setOwnerAddress] = useState<string>('123') // Default address
-  const [globalSignature, setGlobalSignature] = useState<string>('246') // Default signature (123 × 2)
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [authError, setAuthError] = useState<string | null>(null)
   const [serviceShards, setServiceShards] = useState<ServiceShards[]>([])
   const [selectedShards, setSelectedShards] = useState<{[serviceShardKey: string]: boolean}>({})
+  
+  // Per-service authentication data
+  const [noAuthData, setNoAuthData] = useState<{ownerAddress: string}>({ownerAddress: '123'})
+  const [mockSigData, setMockSigData] = useState<{ownerAddress: string, signature: string}>({ownerAddress: '123', signature: '246'})
 
   const loadingRef = useRef(false)
 
@@ -89,7 +92,8 @@ export default function RestoreComponent({ shamirConfig, keyShardStorageBackend,
           authInfoList.push({
             serviceName: service.name,
             authType: authConfig.authType,
-            description: authConfig.description
+            description: authConfig.description,
+            isAuthenticated: false
           })
         } catch (error) {
           console.error(`❌ Failed to get auth config for service ${service.name}:`, error)
@@ -129,101 +133,97 @@ export default function RestoreComponent({ shamirConfig, keyShardStorageBackend,
     }
   }
 
-  const loadAvailableShards = async () => {
-    console.log('🔄 Loading available shards from all services...')
-    try {
-      const authData: AuthData = {
-        ownerAddress: ownerAddress.trim(),
-        signature: globalSignature.trim()
-      }
-
-      const allServiceShards: ServiceShards[] = []
-      
-      for (const service of activeServices) {
-        try {
-          const storageService = new KeyShareStorageService(service.name)
-          const shards = await storageService.getAllShardsWithAuth(authData)
-          
-          allServiceShards.push({
-            serviceName: service.name,
-            shards: shards.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()) // Sort by newest first
-          })
-        } catch (error) {
-          console.error(`❌ Failed to load shards from service ${service.name}:`, error)
-          allServiceShards.push({
-            serviceName: service.name,
-            shards: []
-          })
-        }
-      }
-      
-      setServiceShards(allServiceShards)
-      
-      // Clear previous selections
-      setSelectedShards({})
-      
-      console.log('✅ Loaded shards from all services')
-    } catch (error) {
-      console.error('❌ Failed to load available shards:', error)
-      setStatus({ type: 'error', message: `Failed to load shards: ${error instanceof Error ? error.message : 'Unknown error'}` })
-    }
-  }
-
-  const authenticate = async () => {
-    console.log('🔑 Starting authentication...')
-    setAuthError(null)
-    setIsAuthenticated(false)
-    setServiceShards([])
-    setSelectedShards({})
+  const authenticateService = async (serviceName: string) => {
+    console.log(`🔑 Authenticating service: ${serviceName}...`)
     
-    if (!ownerAddress.trim()) {
-      setAuthError('Please provide an owner address')
-      return
-    }
-
-    // Check if any service requires signature authentication
-    const signatureRequiredServices = servicesAuthInfo.filter(service => service.authType === 'mock-signature-2x')
-    if (signatureRequiredServices.length > 0 && !globalSignature.trim()) {
-      setAuthError(`Signature required for services: ${signatureRequiredServices.map(s => s.serviceName).join(', ')}`)
-      return
-    }
+    const serviceInfo = servicesAuthInfo.find(s => s.serviceName === serviceName)
+    if (!serviceInfo) return
     
     try {
-      // Test authentication by trying to access a service
-      if (activeServices.length > 0) {
-        const testService = new KeyShareStorageService(activeServices[0].name)
-        const authData: AuthData = {
-          ownerAddress: ownerAddress.trim(),
-          signature: globalSignature.trim()
+      const storageService = new KeyShareStorageService(serviceName)
+      let authData: AuthData
+      
+      // Get auth data based on service type
+      if (serviceInfo.authType === 'no-auth') {
+        authData = {
+          ownerAddress: noAuthData.ownerAddress.trim(),
+          signature: ''
         }
-        
-        // Try to get shard metadata to test authentication
-        await testService.getShardMetadata()
-        
-        setIsAuthenticated(true)
-        setAuthError(null)
-        setStatus({ type: 'success', message: 'Authentication successful' })
-        
-        // Load available shards from all services
-        await loadAvailableShards()
+      } else if (serviceInfo.authType === 'mock-signature-2x') {
+        if (!mockSigData.ownerAddress.trim() || !mockSigData.signature.trim()) {
+          throw new Error('Owner address and signature required for mock-signature-2x')
+        }
+        authData = {
+          ownerAddress: mockSigData.ownerAddress.trim(),
+          signature: mockSigData.signature.trim()
+        }
       } else {
-        setIsAuthenticated(true)
-        setAuthError(null)
+        throw new Error(`Unknown auth type: ${serviceInfo.authType}`)
       }
+      
+      // Test authentication by trying to get shards
+      await storageService.getAllShardsWithAuth(authData)
+      
+      // Update service auth status
+      setServicesAuthInfo(prev => prev.map(s => 
+        s.serviceName === serviceName 
+          ? { ...s, isAuthenticated: true, authData, authError: undefined }
+          : s
+      ))
+      
+      console.log(`✅ Authentication successful for service: ${serviceName}`)
+      
+      // Reload shards for this service
+      await loadShardsForService(serviceName, authData)
+      
     } catch (error) {
-      console.error('❌ Authentication failed:', error)
-      setAuthError(`Authentication failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
-      setIsAuthenticated(false)
+      console.error(`❌ Authentication failed for service ${serviceName}:`, error)
+      setServicesAuthInfo(prev => prev.map(s => 
+        s.serviceName === serviceName 
+          ? { ...s, isAuthenticated: false, authError: error instanceof Error ? error.message : 'Unknown error' }
+          : s
+      ))
     }
   }
 
-  const clearAuthentication = () => {
-    setIsAuthenticated(false)
-    setAuthError(null)
-    setOwnerAddress('')
-    setGlobalSignature('')
-    setServiceShards([])
-    setSelectedShards({})
+  const loadShardsForService = async (serviceName: string, authData: AuthData) => {
+    try {
+      const storageService = new KeyShareStorageService(serviceName)
+      const shards = await storageService.getAllShardsWithAuth(authData)
+      
+      setServiceShards(prev => {
+        const updated = prev.filter(s => s.serviceName !== serviceName)
+        updated.push({
+          serviceName,
+          shards: shards.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
+        })
+        return updated
+      })
+    } catch (error) {
+      console.error(`❌ Failed to load shards for service ${serviceName}:`, error)
+    }
+  }
+
+  const clearServiceAuthentication = (serviceName: string) => {
+    setServicesAuthInfo(prev => prev.map(s => 
+      s.serviceName === serviceName 
+        ? { ...s, isAuthenticated: false, authData: undefined, authError: undefined }
+        : s
+    ))
+    
+    // Remove shards for this service
+    setServiceShards(prev => prev.filter(s => s.serviceName !== serviceName))
+    
+    // Clear selected shards for this service
+    setSelectedShards(prev => {
+      const updated = { ...prev }
+      Object.keys(updated).forEach(key => {
+        if (key.startsWith(`${serviceName}-`)) {
+          delete updated[key]
+        }
+      })
+      return updated
+    })
   }
 
   const handleShardSelection = (serviceName: string, shardIndex: number, checked: boolean) => {
@@ -235,7 +235,7 @@ export default function RestoreComponent({ shamirConfig, keyShardStorageBackend,
   }
 
   const getSelectedShardsList = () => {
-    const selected: Array<{serviceName: string, shard: StoredKeyShardData}> = []
+    const selected: Array<{serviceName: string, shard: KeyShard}> = []
     
     for (const [key, isSelected] of Object.entries(selectedShards)) {
       if (isSelected) {
@@ -257,12 +257,12 @@ export default function RestoreComponent({ shamirConfig, keyShardStorageBackend,
 
   const canRestore = () => {
     const selectedShardsList = getSelectedShardsList()
-    return encryptedBlobHash && isAuthenticated && selectedShardsList.length >= shamirConfig.threshold
+    return encryptedBlobHash && selectedShardsList.length >= shamirConfig.threshold
   }
 
   const handleRestore = async () => {
     if (!canRestore()) {
-      setStatus({ type: 'error', message: 'Cannot restore: missing blob hash, authentication, or insufficient shards selected' })
+      setStatus({ type: 'error', message: 'Cannot restore: missing blob hash or insufficient shards selected' })
       return
     }
 
@@ -318,6 +318,15 @@ export default function RestoreComponent({ shamirConfig, keyShardStorageBackend,
     }
   }
 
+  // Group services by auth type
+  const servicesByAuthType = servicesAuthInfo.reduce((acc, service) => {
+    if (!acc[service.authType]) {
+      acc[service.authType] = []
+    }
+    acc[service.authType].push(service)
+    return acc
+  }, {} as Record<AuthorizationType, ServiceAuthInfo[]>)
+
   return (
     <div>
       <h1>Restore Profile</h1>
@@ -356,76 +365,102 @@ export default function RestoreComponent({ shamirConfig, keyShardStorageBackend,
       </div>
 
       <div>
-        <h2>Authentication</h2>
-        <div>
-          <label>
-            Owner Address:
-            <input
-              type="text"
-              value={ownerAddress}
-              onChange={(e) => setOwnerAddress(e.target.value)}
-              placeholder="123"
-            />
-          </label>
-        </div>
-        <div>
-          <label>
-            Signature:
-            <input
-              type="text"
-              value={globalSignature}
-              onChange={(e) => setGlobalSignature(e.target.value)}
-              placeholder="246"
-            />
-          </label>
-        </div>
-        <p><small>Note: For mock signature auth, signature should be address × 2</small></p>
+        <h2>Service Authentication</h2>
+        <p>Authenticate with each key storage service individually:</p>
         
-        {!isAuthenticated && (
-          <button onClick={authenticate} disabled={!ownerAddress.trim()}>
-            Authenticate
-          </button>
-        )}
-        
-        {isAuthenticated && (
-          <div>
-            <p>✅ Authenticated as: {ownerAddress}</p>
-            <button onClick={clearAuthentication}>Clear Authentication</button>
+        {Object.entries(servicesByAuthType).map(([authType, services]) => (
+          <div key={authType} style={{ marginBottom: '30px', border: '1px solid black', padding: '15px' }}>
+            <h3>{authType === 'no-auth' ? 'No Authentication Required' : authType === 'mock-signature-2x' ? 'Mock Signature Authentication (×2)' : authType}</h3>
+            
+            {authType === 'no-auth' && (
+              <div style={{ marginBottom: '15px' }}>
+                <label>
+                  Owner Address:
+                  <input
+                    type="text"
+                    value={noAuthData.ownerAddress}
+                    onChange={(e) => setNoAuthData({...noAuthData, ownerAddress: e.target.value})}
+                    placeholder="123"
+                  />
+                </label>
+                <p><small>Only owner address required for no-auth services</small></p>
+              </div>
+            )}
+            
+            {authType === 'mock-signature-2x' && (
+              <div style={{ marginBottom: '15px' }}>
+                <div>
+                  <label>
+                    Owner Address:
+                    <input
+                      type="text"
+                      value={mockSigData.ownerAddress}
+                      onChange={(e) => setMockSigData({...mockSigData, ownerAddress: e.target.value})}
+                      placeholder="123"
+                    />
+                  </label>
+                </div>
+                <div>
+                  <label>
+                    Signature:
+                    <input
+                      type="text"
+                      value={mockSigData.signature}
+                      onChange={(e) => setMockSigData({...mockSigData, signature: e.target.value})}
+                      placeholder="246"
+                    />
+                  </label>
+                </div>
+                <p><small>Signature should be address × 2 (e.g., 123 × 2 = 246)</small></p>
+              </div>
+            )}
+            
+            <h4>Services using {authType}:</h4>
+            {services.map(service => (
+              <div key={service.serviceName} style={{ marginBottom: '10px', padding: '10px', border: '1px solid gray' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <strong>{service.serviceName}</strong>
+                  {service.isAuthenticated ? (
+                    <span>✅ Authenticated</span>
+                  ) : (
+                    <span>❌ Not authenticated</span>
+                  )}
+                </div>
+                
+                <div style={{ fontSize: '0.9em', marginTop: '5px' }}>
+                  {service.description}
+                </div>
+                
+                <div style={{ marginTop: '10px' }}>
+                  {!service.isAuthenticated ? (
+                    <button onClick={() => authenticateService(service.serviceName)}>
+                      Authenticate
+                    </button>
+                  ) : (
+                    <button onClick={() => clearServiceAuthentication(service.serviceName)}>
+                      Clear Authentication
+                    </button>
+                  )}
+                </div>
+                
+                {service.authError && (
+                  <div style={{ marginTop: '5px' }}>
+                    <p>❌ {service.authError}</p>
+                  </div>
+                )}
+                
+                {service.isAuthenticated && service.authData && (
+                  <div style={{ marginTop: '5px', fontSize: '0.8em' }}>
+                    <p>Authenticated with: {service.authData.ownerAddress}</p>
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
-        )}
-        
-        {authError && (
-          <div>
-            <p>❌ {authError}</p>
-          </div>
-        )}
+        ))}
       </div>
 
-      {servicesAuthInfo.length > 0 && (
-        <div>
-          <h2>Service Authorization Requirements</h2>
-          <table>
-            <thead>
-              <tr>
-                <th>Service</th>
-                <th>Auth Type</th>
-                <th>Description</th>
-              </tr>
-            </thead>
-            <tbody>
-              {servicesAuthInfo.map((service, index) => (
-                <tr key={index}>
-                  <td>{service.serviceName}</td>
-                  <td>{service.authType}</td>
-                  <td>{service.description}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {isAuthenticated && serviceShards.length > 0 && (
+      {serviceShards.length > 0 && (
         <div>
           <h2>Available Shards per Service</h2>
           <p>Select {shamirConfig.threshold} or more shards to restore your profile:</p>
@@ -449,7 +484,7 @@ export default function RestoreComponent({ shamirConfig, keyShardStorageBackend,
                       </label>
                       <div style={{ marginLeft: '20px', fontSize: '0.8em' }}>
                         <p>Size: {shard.data.length} bytes</p>
-                        <p>Owner: {shard.authorizationAddress || 'Not specified'}</p>
+                        <p>Owner: {shard.authorizationAddress}</p>
                       </div>
                     </div>
                   ))}
@@ -469,7 +504,7 @@ export default function RestoreComponent({ shamirConfig, keyShardStorageBackend,
           <li><b>Key Shard Storage:</b> {keyShardStorageBackend.type} {keyShardStorageBackend.endpoint && `(${keyShardStorageBackend.endpoint})`}</li>
           <li><b>Encrypted Data Storage:</b> {encryptedDataStorage.type} {encryptedDataStorage.endpoint && `(${encryptedDataStorage.endpoint})`}</li>
           <li><b>Active Services:</b> {activeServices.length}</li>
-          <li><b>Authentication:</b> {isAuthenticated ? '✅ Authenticated' : '❌ Not authenticated'}</li>
+          <li><b>Authenticated Services:</b> {servicesAuthInfo.filter(s => s.isAuthenticated).length}</li>
         </ul>
       </div>
 
@@ -481,7 +516,7 @@ export default function RestoreComponent({ shamirConfig, keyShardStorageBackend,
         >
           {isLoading ? 'Restoring...' : 'Restore Profile'}
         </button>
-        {!canRestore() && isAuthenticated && (
+        {!canRestore() && (
           <p>Please select {shamirConfig.threshold} or more shards to enable restore.</p>
         )}
       </div>
