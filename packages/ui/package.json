@@ -11,8 +11,10 @@
   },
   "dependencies": {
     "@gresistor/library": "workspace:*",
+    "ethers": "^6.15.0",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "siwe": "^3.0.0"
   },
   "devDependencies": {
     "@types/react": "^18.2.0",

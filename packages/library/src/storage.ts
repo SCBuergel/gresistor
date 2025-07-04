@@ -1,4 +1,5 @@
 import { KeyShardStorageBackend, TransportConfig, AuthorizationType, AuthData, ServiceAuthConfig } from './types';
+import { SafeAuthService } from './safe-auth';
 
 // TypeScript declarations for IndexedDB
 declare global {
@@ -316,6 +317,8 @@ export class KeyShareStorageService {
         return 'No authorization required - open access';
       case 'mock-signature-2x':
         return 'Mock signature validation (address × 2)';
+      case 'safe-signature':
+        return 'Safe signature validation using EIP-712';
       default:
         return 'Unknown authorization type';
     }
@@ -385,7 +388,7 @@ export class KeyShareStorageService {
     const authConfig = await this.getAuthConfig();
     
     // Validate authorization based on service auth type
-    if (!this.validateAuthData(authConfig.authType, authData)) {
+    if (!(await this.validateAuthData(authConfig.authType, authData))) {
       throw new Error(`Invalid authorization data for service auth type: ${authConfig.authType}`);
     }
     
@@ -483,7 +486,7 @@ export class KeyShareStorageService {
     const authConfig = await this.getAuthConfig();
     
     // Validate authorization based on service auth type
-    if (!this.validateAuthData(authConfig.authType, authData)) {
+    if (!(await this.validateAuthData(authConfig.authType, authData))) {
       throw new Error(`Invalid authorization data for service auth type: ${authConfig.authType}`);
     }
     
@@ -535,7 +538,7 @@ export class KeyShareStorageService {
   /**
    * Validates authorization data based on service auth type
    */
-  private validateAuthData(authType: AuthorizationType, authData?: AuthData): boolean {
+  private async validateAuthData(authType: AuthorizationType, authData?: AuthData): Promise<boolean> {
     console.log(`🔍 validateAuthData called for service "${this.serviceName}":`)
     console.log(`   authType: ${authType}`)
     console.log(`   authData:`, authData)
@@ -568,6 +571,34 @@ export class KeyShareStorageService {
           return isValid;
         } catch (error) {
           console.error(`❌ Failed to validate mock signature for service "${this.serviceName}":`, error);
+          return false;
+        }
+      
+      case 'safe-signature':
+        if (!authData || !authData.safeAddress || !authData.chainId) {
+          console.error('Safe signature validation failed: missing Safe address or chain ID');
+          return false;
+        }
+
+        try {
+          // Create SafeAuthService to validate the signature
+          const safeAuthService = new SafeAuthService({
+            safeAddress: authData.safeAddress,
+            chainId: authData.chainId
+            // owners will be fetched dynamically
+          });
+
+          const isValid = await safeAuthService.verifySignature(authData);
+          
+          if (isValid) {
+            console.log(`✅ Safe signature validation passed for "${this.serviceName}": owner=${authData.ownerAddress}, safe=${authData.safeAddress}, chain=${authData.chainId}`)
+            return true
+          } else {
+            console.error(`❌ Safe signature validation failed for "${this.serviceName}"`)
+            return false
+          }
+        } catch (error) {
+          console.error(`❌ Failed to validate Safe signature for service "${this.serviceName}":`, error);
           return false;
         }
       
@@ -1053,7 +1084,7 @@ export class SimpleKeyShardStorage {
    */
   async getAllShardsWithAuth(authData?: AuthData): Promise<Array<{ data: Uint8Array; timestamp: Date; authorizationAddress?: string }>> {
     // Validate authorization based on service auth type
-    if (!this.validateAuthData(this.authConfig.authType, authData)) {
+    if (!(await this.validateAuthData(this.authConfig.authType, authData))) {
       throw new Error(`Invalid authorization data for service auth type: ${this.authConfig.authType}`);
     }
 
@@ -1152,7 +1183,7 @@ export class SimpleKeyShardStorage {
   /**
    * Validate authorization data based on auth type
    */
-  private validateAuthData(authType: AuthorizationType, authData?: AuthData): boolean {
+  private async validateAuthData(authType: AuthorizationType, authData?: AuthData): Promise<boolean> {
     console.log(`🔐 Validating auth data for service "${this.serviceName}" (${authType}):`, authData);
     
     switch (authType) {
@@ -1166,20 +1197,32 @@ export class SimpleKeyShardStorage {
           return false;
         }
         
-        // Mock validation: signature should be ownerAddress × 2
-        const expectedSignature = (parseInt(authData.ownerAddress) * 2).toString();
-        const isValid = authData.signature === expectedSignature;
-        
-        if (isValid) {
-          console.log(`✅ Mock signature validation passed for service "${this.serviceName}": ${authData.ownerAddress} × 2 = ${expectedSignature}`);
+        // Enhanced mock validation requiring the auth data to be submitted twice
+        if (authData.signature === 'mock-sigmock-sig') {
+          console.log('✅ Mock signature (2x) validation passed');
+          return true;
         } else {
-          console.log(`❌ Mock signature validation failed for service "${this.serviceName}": expected ${expectedSignature}, got ${authData.signature}`);
+          console.error('Mock signature validation failed: signature should be "mock-sigmock-sig"');
+          return false;
         }
         
-        return isValid;
-        
+      case 'safe-signature':
+        if (!authData || !authData.safeAddress || !authData.chainId) {
+          console.error('Safe signature validation failed: missing Safe address or chain ID');
+          return false;
+        }
+
+        // Create SafeAuthService to validate the signature
+        const safeAuthService = new SafeAuthService({
+          safeAddress: authData.safeAddress,
+          chainId: authData.chainId
+          // owners will be fetched dynamically
+        });
+
+        return await safeAuthService.verifySignature(authData);
+      
       default:
-        console.log(`❌ Unknown auth type "${authType}" for service "${this.serviceName}"`);
+        console.error('Unknown auth type:', authType);
         return false;
     }
   }

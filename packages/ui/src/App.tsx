@@ -18,9 +18,9 @@ const DEFAULT_ENCRYPTED_DATA_STORAGE: EncryptedDataStorage = {
 }
 
 const DEFAULT_SAFE_CONFIG: SafeConfig = {
-  safeAddress: '',
-  chainId: 100,
-  owners: []
+  safeAddress: '0xCadD4Ea3BCC361Fc4aF2387937d7417be8d7dfC2',
+  chainId: 100
+  // owners will be fetched dynamically from the Safe contract
 }
 
 type Tab = 'backup' | 'restore' | 'config'

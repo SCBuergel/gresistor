@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
-import { EncryptionService, ShamirSecretSharing, EncryptedDataStorageService, KeyShareStorageService, ShamirConfig, KeyShardStorageBackend, EncryptedDataStorage, SafeConfig, AuthData, AuthorizationType, KeyShard } from '@gresistor/library'
+import { EncryptionService, ShamirSecretSharing, EncryptedDataStorageService, KeyShareStorageService, ShamirConfig, KeyShardStorageBackend, EncryptedDataStorage, SafeConfig, AuthData, AuthorizationType, KeyShard, SafeAuthService } from '@gresistor/library'
 import { KeyShareRegistryService } from '@gresistor/library'
+import { SiweMessage } from 'siwe'
+import { ethers } from 'ethers'
 
 interface RestoreComponentProps {
   shamirConfig: ShamirConfig
@@ -34,6 +36,11 @@ interface ServiceShards {
   shards: KeyShard[]
 }
 
+const CHAIN_OPTIONS = [
+  { id: 100, name: 'Gnosis Chain', rpcUrl: 'https://rpc.gnosischain.com' },
+  { id: 1, name: 'Ethereum', rpcUrl: 'https://eth.drpc.org' }
+]
+
 export default function RestoreComponent({ shamirConfig, keyShardStorageBackend, encryptedDataStorage, safeConfig }: RestoreComponentProps) {
   const [availableBackups, setAvailableBackups] = useState<StoredBackup[]>([])
   const [encryptedBlobHash, setEncryptedBlobHash] = useState<string>('')
@@ -48,6 +55,16 @@ export default function RestoreComponent({ shamirConfig, keyShardStorageBackend,
   // Per-service authentication data
   const [noAuthData, setNoAuthData] = useState<{ownerAddress: string}>({ownerAddress: '123'})
   const [mockSigData, setMockSigData] = useState<{ownerAddress: string, signature: string}>({ownerAddress: '123', signature: '246'})
+  
+  // Safe authentication state
+  const [siweConfig, setSiweConfig] = useState({
+    safeAddress: '0xCadD4Ea3BCC361Fc4aF2387937d7417be8d7dfC2',
+    chainId: 100,
+    rpcProvider: 'https://rpc.gnosischain.com'
+  })
+  const [isWalletConnected, setIsWalletConnected] = useState(false)
+  const [connectedAddress, setConnectedAddress] = useState<string>('')
+  const [safeAuthService, setSafeAuthService] = useState<SafeAuthService | null>(null)
 
   const loadingRef = useRef(false)
 
@@ -68,6 +85,21 @@ export default function RestoreComponent({ shamirConfig, keyShardStorageBackend,
       loadingRef.current = false
     })
   }, [encryptedDataStorage.type, keyShardStorageBackend.type])
+
+  useEffect(() => {
+    // Initialize Safe config and SafeAuthService
+    if (safeConfig.safeAddress && safeConfig.chainId) {
+      setSiweConfig(prev => ({
+        ...prev,
+        safeAddress: safeConfig.safeAddress,
+        chainId: safeConfig.chainId
+      }))
+      
+      // Initialize SafeAuthService with current config
+      const authService = new SafeAuthService(safeConfig)
+      setSafeAuthService(authService)
+    }
+  }, [safeConfig])
 
   const loadActiveServices = async () => {
     console.log('🔄 Loading active services...')
@@ -133,6 +165,45 @@ export default function RestoreComponent({ shamirConfig, keyShardStorageBackend,
     }
   }
 
+  // Secure wallet connection with Safe owner validation
+  const connectWallet = async () => {
+    try {
+      if (!safeAuthService) {
+        throw new Error('Safe authentication service not initialized')
+      }
+
+      // Use SafeAuthService which validates that connected wallet is a Safe owner
+      const address = await safeAuthService.connectWallet()
+      
+      setConnectedAddress(address)
+      setIsWalletConnected(true)
+      
+      console.log(`✅ Wallet connected and verified as Safe owner: ${address}`)
+      return address
+    } catch (error) {
+      console.error('Failed to connect wallet:', error)
+      throw error
+    }
+  }
+
+  // Secure Safe authentication message signing
+  const signAuthMessage = async (): Promise<AuthData> => {
+    if (!safeAuthService || !connectedAddress) {
+      throw new Error('Safe authentication service not initialized or wallet not connected')
+    }
+
+    try {
+      // Use SafeAuthService to create and sign a proper EIP-712 message
+      const authData = await safeAuthService.signAuthMessage('Backup Shard Access')
+      
+      console.log(`✅ Safe authentication message signed by verified owner: ${authData.ownerAddress}`)
+      return authData
+    } catch (error) {
+      console.error('Failed to sign authentication message:', error)
+      throw error
+    }
+  }
+
   const authenticateService = async (serviceName: string) => {
     console.log(`🔑 Authenticating service: ${serviceName}...`)
     
@@ -157,6 +228,14 @@ export default function RestoreComponent({ shamirConfig, keyShardStorageBackend,
           ownerAddress: mockSigData.ownerAddress.trim(),
           signature: mockSigData.signature.trim()
         }
+      } else if (serviceInfo.authType === 'safe-signature') {
+        if (!isWalletConnected) {
+          throw new Error('Wallet not connected. Please connect your wallet first.')
+        }
+        
+        // Sign Safe authentication message with owner validation
+        authData = await signAuthMessage()
+        
       } else {
         throw new Error(`Unknown auth type: ${serviceInfo.authType}`)
       }
@@ -189,13 +268,22 @@ export default function RestoreComponent({ shamirConfig, keyShardStorageBackend,
   const loadShardsForService = async (serviceName: string, authData: AuthData) => {
     try {
       const storageService = new KeyShareStorageService(serviceName)
-      const shards = await storageService.getAllShardsWithAuth(authData)
+      const storedShards = await storageService.getAllShardsWithAuth(authData)
+      
+      // Convert StoredKeyShardData to KeyShard format
+      const shards: KeyShard[] = storedShards.map((stored, index) => ({
+        id: `${serviceName}-${index}`,
+        data: stored.data,
+        threshold: shamirConfig.threshold,
+        totalShares: shamirConfig.totalShares,
+        authorizationAddress: stored.authorizationAddress
+      }))
       
       setServiceShards(prev => {
         const updated = prev.filter(s => s.serviceName !== serviceName)
         updated.push({
           serviceName,
-          shards: shards.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
+          shards: shards
         })
         return updated
       })
@@ -370,7 +458,12 @@ export default function RestoreComponent({ shamirConfig, keyShardStorageBackend,
         
         {Object.entries(servicesByAuthType).map(([authType, services]) => (
           <div key={authType} style={{ marginBottom: '30px', border: '1px solid black', padding: '15px' }}>
-            <h3>{authType === 'no-auth' ? 'No Authentication Required' : authType === 'mock-signature-2x' ? 'Mock Signature Authentication (×2)' : authType}</h3>
+            <h3>
+              {authType === 'no-auth' ? 'No Authentication Required' : 
+               authType === 'mock-signature-2x' ? 'Mock Signature Authentication (×2)' : 
+               authType === 'safe-signature' ? 'Safe Signature Authentication' :
+               authType}
+            </h3>
             
             {authType === 'no-auth' && (
               <div style={{ marginBottom: '15px' }}>
@@ -412,6 +505,96 @@ export default function RestoreComponent({ shamirConfig, keyShardStorageBackend,
                   </label>
                 </div>
                 <p><small>Signature should be address × 2 (e.g., 123 × 2 = 246)</small></p>
+              </div>
+            )}
+            
+            {authType === 'safe-signature' && (
+              <div style={{ marginBottom: '15px' }}>
+                <div style={{ marginBottom: '15px' }}>
+                  <div style={{ marginBottom: '10px' }}>
+                    <label>
+                      Safe Address:
+                      <input
+                        type="text"
+                        value={siweConfig.safeAddress}
+                        onChange={(e) => setSiweConfig(prev => ({ ...prev, safeAddress: e.target.value }))}
+                        placeholder="0xCadD4Ea3BCC361Fc4aF2387937d7417be8d7dfC2"
+                        style={{ width: '400px', marginLeft: '10px' }}
+                      />
+                    </label>
+                  </div>
+                  
+                  <div style={{ marginBottom: '10px' }}>
+                    <label>
+                      Chain ID:
+                      <select
+                        value={siweConfig.chainId}
+                        onChange={(e) => {
+                          const selectedChain = CHAIN_OPTIONS.find(c => c.id === Number(e.target.value))
+                          setSiweConfig(prev => ({ 
+                            ...prev, 
+                            chainId: Number(e.target.value),
+                            rpcProvider: selectedChain?.rpcUrl || prev.rpcProvider
+                          }))
+                        }}
+                        style={{ marginLeft: '10px' }}
+                      >
+                        {CHAIN_OPTIONS.map(chain => (
+                          <option key={chain.id} value={chain.id}>
+                            {chain.name} ({chain.id})
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+                  
+                  <div style={{ marginBottom: '10px' }}>
+                    <label>
+                      RPC Provider:
+                      <input
+                        type="text"
+                        value={siweConfig.rpcProvider}
+                        onChange={(e) => setSiweConfig(prev => ({ ...prev, rpcProvider: e.target.value }))}
+                        placeholder="https://rpc.gnosischain.com"
+                        style={{ width: '400px', marginLeft: '10px' }}
+                      />
+                    </label>
+                  </div>
+                </div>
+                
+                <div style={{ marginBottom: '10px' }}>
+                  {!isWalletConnected ? (
+                    <button 
+                      onClick={async () => {
+                        try {
+                          await connectWallet()
+                        } catch (error) {
+                          alert(`Failed to connect wallet: ${error instanceof Error ? error.message : 'Unknown error'}`)
+                        }
+                      }}
+                    >
+                      Connect Wallet
+                    </button>
+                  ) : (
+                    <div>
+                      <p>✅ <strong>Connected:</strong> {connectedAddress}</p>
+                      <button 
+                        onClick={() => {
+                          safeAuthService?.disconnect()
+                          setIsWalletConnected(false)
+                          setConnectedAddress('')
+                        }}
+                      >
+                        Disconnect
+                      </button>
+                    </div>
+                  )}
+                </div>
+                
+                <p><small>
+                  SIWE (Sign-In With Ethereum) authentication for Safe. 
+                  Your wallet must be connected and the address must be a Safe owner.
+                </small></p>
               </div>
             )}
             
@@ -480,7 +663,7 @@ export default function RestoreComponent({ shamirConfig, keyShardStorageBackend,
                           checked={selectedShards[`${service.serviceName}-${shardIndex}`] || false}
                           onChange={(e) => handleShardSelection(service.serviceName, shardIndex, e.target.checked)}
                         />
-                        Shard {shardIndex + 1} - Created: {shard.timestamp.toISOString()}
+                        Shard {shardIndex + 1} - ID: {shard.id}
                       </label>
                       <div style={{ marginLeft: '20px', fontSize: '0.8em' }}>
                         <p>Size: {shard.data.length} bytes</p>

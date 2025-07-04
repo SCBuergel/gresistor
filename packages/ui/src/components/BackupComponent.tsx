@@ -39,6 +39,10 @@ export default function BackupComponent({ shamirConfig, keyShardStorageBackend, 
   // Per-service authentication data
   const [noAuthData, setNoAuthData] = useState<{ownerAddress: string}>({ownerAddress: '123'})
   const [mockSigData, setMockSigData] = useState<{ownerAddress: string, signature: string}>({ownerAddress: '123', signature: '246'})
+  const [safeData, setSafeData] = useState<{safeAddress: string, chainId: number}>({
+    safeAddress: '0xCadD4Ea3BCC361Fc4aF2387937d7417be8d7dfC2',
+    chainId: 100 // Default to Gnosis Chain
+  })
 
   useEffect(() => {
     setProfileName(DEFAULT_PROFILE_NAME);
@@ -50,6 +54,8 @@ export default function BackupComponent({ shamirConfig, keyShardStorageBackend, 
       loadAllServices()
     }
   }, [keyShardStorageBackend.type])
+
+
 
   const loadAllServices = async () => {
     try {
@@ -108,7 +114,7 @@ export default function BackupComponent({ shamirConfig, keyShardStorageBackend, 
   }
 
   const authenticateService = async (serviceName: string) => {
-    console.log(`🔑 Authenticating service: ${serviceName}...`)
+    console.log(`🔑 Setting authorization for service: ${serviceName}...`)
     
     const serviceInfo = allServices.find(s => s.serviceName === serviceName)
     if (!serviceInfo) return
@@ -117,25 +123,35 @@ export default function BackupComponent({ shamirConfig, keyShardStorageBackend, 
       const storageService = new KeyShareStorageService(serviceName)
       let authData: AuthData
       
-      // Get auth data based on service type
+      // Get auth data based on service type (for setting authorization address, no signature verification needed during backup)
       if (serviceInfo.authType === 'no-auth') {
         authData = {
           ownerAddress: noAuthData.ownerAddress.trim(),
           signature: ''
         }
       } else if (serviceInfo.authType === 'mock-signature-2x') {
-        if (!mockSigData.ownerAddress.trim() || !mockSigData.signature.trim()) {
-          throw new Error('Owner address and signature required for mock-signature-2x')
+        if (!mockSigData.ownerAddress.trim()) {
+          throw new Error('Owner address required for mock-signature-2x')
         }
         authData = {
           ownerAddress: mockSigData.ownerAddress.trim(),
-          signature: mockSigData.signature.trim()
+          signature: mockSigData.signature.trim() // Still include signature for display purposes
+        }
+      } else if (serviceInfo.authType === 'safe-signature') {
+        if (!safeData.safeAddress.trim() || !safeData.chainId) {
+          throw new Error('Safe address and chain ID required for safe-signature')
+        }
+        authData = {
+          ownerAddress: safeData.safeAddress.trim(), // Use Safe address as owner address for authorization
+          signature: '', // No signature needed during backup
+          safeAddress: safeData.safeAddress.trim(),
+          chainId: safeData.chainId
         }
       } else {
         throw new Error(`Unknown auth type: ${serviceInfo.authType}`)
       }
       
-      // Test authentication by trying to get shard metadata
+      // Test connection by trying to get shard metadata (no auth required for this)
       await storageService.getShardMetadata()
       
       // Update service auth status
@@ -145,10 +161,10 @@ export default function BackupComponent({ shamirConfig, keyShardStorageBackend, 
           : s
       ))
       
-      console.log(`✅ Authentication successful for service: ${serviceName}`)
+      console.log(`✅ Authorization set for service: ${serviceName}`)
       
     } catch (error) {
-      console.error(`❌ Authentication failed for service ${serviceName}:`, error)
+      console.error(`❌ Failed to set authorization for service ${serviceName}:`, error)
       setAllServices(prev => prev.map(s => 
         s.serviceName === serviceName 
           ? { ...s, isAuthenticated: false, authError: error instanceof Error ? error.message : 'Unknown error' }
@@ -313,8 +329,8 @@ export default function BackupComponent({ shamirConfig, keyShardStorageBackend, 
       </div>
 
       <div>
-        <h2>Service Selection</h2>
-        <p>Select exactly {shamirConfig.totalShares} services to store your key shards:</p>
+        <h2>Service Selection & Authorization</h2>
+        <p>Select exactly {shamirConfig.totalShares} services and set authorization (who can retrieve the shards later):</p>
         
         {!servicesLoaded ? (
           <p>Loading services...</p>
@@ -326,7 +342,12 @@ export default function BackupComponent({ shamirConfig, keyShardStorageBackend, 
             
             {Object.entries(servicesByAuthType).map(([authType, services]) => (
               <div key={authType} style={{ marginBottom: '30px', border: '1px solid black', padding: '15px' }}>
-                <h3>{authType === 'no-auth' ? 'No Authentication Required' : authType === 'mock-signature-2x' ? 'Mock Signature Authentication (×2)' : authType}</h3>
+                <h3>
+                  {authType === 'no-auth' ? 'No Authorization Required' : 
+                   authType === 'mock-signature-2x' ? 'Mock Signature Authorization' : 
+                   authType === 'safe-signature' ? 'Safe Signature Authorization' :
+                   authType}
+                </h3>
                 
                 {authType === 'no-auth' && (
                   <div style={{ marginBottom: '15px' }}>
@@ -371,6 +392,38 @@ export default function BackupComponent({ shamirConfig, keyShardStorageBackend, 
                   </div>
                 )}
                 
+                {authType === 'safe-signature' && (
+                  <div style={{ marginBottom: '15px' }}>
+                    <div>
+                      <label>
+                        Safe Address:
+                        <input
+                          type="text"
+                          value={safeData.safeAddress}
+                          onChange={(e) => setSafeData({...safeData, safeAddress: e.target.value})}
+                          placeholder="0xSafe..."
+                        />
+                      </label>
+                    </div>
+                    <div>
+                      <label>
+                        Chain ID:
+                        <select
+                          value={safeData.chainId}
+                          onChange={(e) => setSafeData({...safeData, chainId: parseInt(e.target.value)})}
+                        >
+                          <option value={100}>Gnosis Chain (100)</option>
+                          <option value={1}>Ethereum (1)</option>
+                        </select>
+                      </label>
+                    </div>
+                    <p><small>
+                      Specify the Safe wallet that will be authorized to retrieve these shards. 
+                      No wallet connection needed for backup - only for restore.
+                    </small></p>
+                  </div>
+                )}
+                
                 <h4>Available services using {authType}:</h4>
                 {services.map(service => (
                   <div key={service.serviceName} style={{ marginBottom: '15px', padding: '10px', border: `2px solid ${service.isSelected ? 'black' : 'gray'}` }}>
@@ -390,7 +443,7 @@ export default function BackupComponent({ shamirConfig, keyShardStorageBackend, 
                       <strong>{service.serviceName}</strong>
                       {service.isSelected && (
                         <span>
-                          {service.isAuthenticated ? '✅ Selected & Authenticated' : '❌ Selected but not authenticated'}
+                          {service.isAuthenticated ? '✅ Selected & Authorization Set' : '❌ Selected but authorization not set'}
                         </span>
                       )}
                     </div>
@@ -403,11 +456,11 @@ export default function BackupComponent({ shamirConfig, keyShardStorageBackend, 
                       <div>
                         {!service.isAuthenticated ? (
                           <button onClick={() => authenticateService(service.serviceName)}>
-                            Authenticate
+                            Set Authorization
                           </button>
                         ) : (
                           <button onClick={() => clearServiceAuthentication(service.serviceName)}>
-                            Clear Authentication
+                            Clear Authorization
                           </button>
                         )}
                         
@@ -419,7 +472,8 @@ export default function BackupComponent({ shamirConfig, keyShardStorageBackend, 
                         
                         {service.isAuthenticated && service.authData && (
                           <div style={{ marginTop: '5px', fontSize: '0.8em' }}>
-                            <p>Authenticated with: {service.authData.ownerAddress}</p>
+                            <p>Authorization set for: {service.authData.safeAddress}</p>
+                            {service.authData.chainId && <p>Chain: {service.authData.chainId}</p>}
                           </div>
                         )}
                       </div>
@@ -440,7 +494,7 @@ export default function BackupComponent({ shamirConfig, keyShardStorageBackend, 
           <li><b>Encrypted Data Storage:</b> {encryptedDataStorage.type} {encryptedDataStorage.endpoint && `(${encryptedDataStorage.endpoint})`}</li>
           <li><b>Available Services:</b> {allServices.length}</li>
           <li><b>Selected Services:</b> {selectedCount} / {shamirConfig.totalShares}</li>
-          <li><b>Authenticated Services:</b> {authenticatedCount} / {selectedCount}</li>
+          <li><b>Services with Authorization Set:</b> {authenticatedCount} / {selectedCount}</li>
           {safeConfig.safeAddress && <li><b>Safe:</b> {safeConfig.safeAddress}</li>}
         </ul>
       </div>
@@ -459,7 +513,7 @@ export default function BackupComponent({ shamirConfig, keyShardStorageBackend, 
             {profileAge <= 0 && <p>❌ Please provide a valid age</p>}
             {selectedCount < shamirConfig.totalShares && <p>❌ Please select exactly {shamirConfig.totalShares} services</p>}
             {selectedCount > shamirConfig.totalShares && <p>❌ Too many services selected ({selectedCount}), need exactly {shamirConfig.totalShares}</p>}
-            {selectedCount === shamirConfig.totalShares && authenticatedCount < selectedCount && <p>❌ Please authenticate with all selected services ({authenticatedCount}/{selectedCount} authenticated)</p>}
+            {selectedCount === shamirConfig.totalShares && authenticatedCount < selectedCount && <p>❌ Please set authorization for all selected services ({authenticatedCount}/{selectedCount} configured)</p>}
           </div>
         )}
       </div>

@@ -18,6 +18,11 @@ const AUTHORIZATION_TYPES: { value: AuthorizationType; label: string; descriptio
     value: 'mock-signature-2x', 
     label: 'Mock Signature (2x)', 
     description: 'Mock signature validation (address × 2)' 
+  },
+  { 
+    value: 'safe-signature', 
+    label: 'Safe Signature', 
+    description: 'Safe wallet signature using EIP-712' 
   }
 ]
 
@@ -284,8 +289,11 @@ export default function ConfigComponent({
                             value={service.authType}
                             onChange={(e) => updateServiceAuthType(service.name, e.target.value as AuthorizationType)}
                           >
-                            <option value="no-auth">No Auth</option>
-                            <option value="mock-signature-2x">Mock Signature (x2)</option>
+                            {AUTHORIZATION_TYPES.map(type => (
+                              <option key={type.value} value={type.value}>
+                                {type.label}
+                              </option>
+                            ))}
                           </select>
                         </td>
                         <td><small>{service.createdAt.toLocaleString()}</small></td>
@@ -447,38 +455,7 @@ export default function ConfigComponent({
         )}
       </div>
 
-      <hr />
 
-      <div>
-        <h1>Safe Authentication</h1>
-        <p>Configure Safe wallet for enhanced security (optional)</p>
-        
-        <div>
-          <h2>Safe Address</h2>
-          <input
-            type="text"
-            value={safeConfig.safeAddress}
-            onChange={(e) => setSafeConfig({
-              ...safeConfig,
-              safeAddress: e.target.value
-            })}
-            placeholder="0x..."
-          />
-        </div>
-
-        <div>
-          <h2>Chain ID</h2>
-          <input
-            type="number"
-            value={safeConfig.chainId}
-            onChange={(e) => setSafeConfig({
-              ...safeConfig,
-              chainId: parseInt(e.target.value) || 1
-            })}
-            placeholder="100"
-          />
-        </div>
-      </div>
 
       <div>
         <h2>Apply Configuration</h2>

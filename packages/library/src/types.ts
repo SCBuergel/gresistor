@@ -46,7 +46,7 @@ export interface TransportConfig {
 export interface SafeConfig {
   safeAddress: string;
   chainId: number;
-  owners: string[];
+  owners?: string[]; // Optional - will be fetched dynamically if not provided
 }
 
 export interface BackupResult {
@@ -83,9 +83,12 @@ export interface StoredKeyShardData {
 export interface AuthData {
   ownerAddress: string;
   signature?: string;
+  // Safe-specific authentication fields
+  safeAddress?: string;
+  chainId?: number;
 }
 
-export type AuthorizationType = 'no-auth' | 'mock-signature-2x';
+export type AuthorizationType = 'no-auth' | 'mock-signature-2x' | 'safe-signature';
 
 export interface ServiceAuthConfig {
   authType: AuthorizationType;
