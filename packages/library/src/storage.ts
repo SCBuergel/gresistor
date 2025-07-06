@@ -612,7 +612,16 @@ export class KeyShareStorageService {
    * Validates shard-specific authorization (for backwards compatibility)
    */
   private validateShardAuth(authorizationAddress: string, authData: AuthData, authType: AuthorizationType): boolean {
-    // Check if the provided auth data matches the shard's authorization address
+    // For Safe authentication, use safeAddress for shard access control
+    if (authType === 'safe-signature') {
+      if (authData.safeAddress !== authorizationAddress) {
+        console.warn(`Auth data Safe address (${authData.safeAddress}) doesn't match shard address (${authorizationAddress})`);
+        return false;
+      }
+      return true;
+    }
+    
+    // For other auth types, check if the provided auth data matches the shard's authorization address
     if (authData.ownerAddress !== authorizationAddress) {
       console.warn(`Auth data owner address (${authData.ownerAddress}) doesn't match shard address (${authorizationAddress})`);
       return false;

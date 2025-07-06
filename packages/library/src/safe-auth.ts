@@ -66,19 +66,24 @@ export class SafeAuthService {
    */
   async fetchOwners(): Promise<string[]> {
     try {
+      console.log(`🔍 Fetching Safe owners for ${this.config.safeAddress} on chain ${this.config.chainId}`);
       const provider = this.getProvider();
       const safeContract = new ethers.Contract(this.config.safeAddress, SAFE_ABI, provider);
       
+      console.log(`📡 Calling getOwners() on Safe contract...`);
       const owners = await safeContract.getOwners();
+      console.log(`✅ Retrieved ${owners.length} owners:`, owners);
       
       // Normalize addresses to lowercase
       const normalizedOwners = owners.map((owner: string) => owner.toLowerCase());
+      console.log(`🔧 Normalized owners:`, normalizedOwners);
       
       // Cache the result
       this.cachedOwners = normalizedOwners;
       
       return normalizedOwners;
     } catch (error) {
+      console.error(`❌ Failed to fetch Safe owners for ${this.config.safeAddress} on chain ${this.config.chainId}:`, error);
       throw new Error(`Failed to fetch Safe owners: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
@@ -105,8 +110,13 @@ export class SafeAuthService {
    * Checks if address is a Safe owner
    */
   async isOwner(address: string): Promise<boolean> {
+    console.log(`🔍 Checking if ${address} is a Safe owner...`);
     const owners = await this.getOwners();
-    return owners.includes(address.toLowerCase());
+    const normalizedAddress = address.toLowerCase();
+    const isOwner = owners.includes(normalizedAddress);
+    console.log(`👤 Address ${normalizedAddress} is ${isOwner ? '✅ a Safe owner' : '❌ NOT a Safe owner'}`);
+    console.log(`📋 Safe owners:`, owners);
+    return isOwner;
   }
 
   /**
@@ -263,10 +273,25 @@ export class SafeAuthService {
         return false;
       }
 
-      // Validate owner address is a Safe owner
-      if (!await this.isOwner(authData.ownerAddress)) {
-        console.error('Signer is not a Safe owner');
+      // Validate owner address is either a Safe owner OR the Safe itself
+      const isOwner = await this.isOwner(authData.ownerAddress);
+      const isSafeItself = authData.ownerAddress.toLowerCase() === authData.safeAddress.toLowerCase();
+      
+      console.log(`🔍 Backend signature validation:`);
+      console.log(`  - Signer address: ${authData.ownerAddress}`);
+      console.log(`  - Safe address: ${authData.safeAddress}`);
+      console.log(`  - Is Safe owner: ${isOwner}`);
+      console.log(`  - Is Safe itself: ${isSafeItself}`);
+      
+      if (!isOwner && !isSafeItself) {
+        console.error('Signer is neither a Safe owner nor the Safe itself');
         return false;
+      }
+      
+      if (isSafeItself) {
+        console.log('✅ Signature validated: Signer is the Safe contract itself');
+      } else {
+        console.log('✅ Signature validated: Signer is a Safe owner');
       }
 
       // TODO: Implement full EIP-712 signature verification

@@ -14,7 +14,8 @@ export default defineConfig({
   },
   define: {
     global: 'globalThis',
-    'process.env': {},
+    'process.env.REACT_APP_WALLETCONNECT_PROJECT_ID': JSON.stringify(process.env.REACT_APP_WALLETCONNECT_PROJECT_ID || process.env.VITE_WALLETCONNECT_PROJECT_ID),
+    'process.env.VITE_WALLETCONNECT_PROJECT_ID': JSON.stringify(process.env.VITE_WALLETCONNECT_PROJECT_ID || process.env.REACT_APP_WALLETCONNECT_PROJECT_ID),
   },
   resolve: {
     alias: {

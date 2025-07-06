@@ -72,6 +72,7 @@ export interface KeyShard {
   threshold: number;
   totalShares: number;
   authorizationAddress?: string;
+  timestamp?: Date;
 }
 
 export interface StoredKeyShardData {
@@ -86,6 +87,8 @@ export interface AuthData {
   // Safe-specific authentication fields
   safeAddress?: string;
   chainId?: number;
+  // SIWE message for verification
+  message?: string;
 }
 
 export type AuthorizationType = 'no-auth' | 'mock-signature-2x' | 'safe-signature';

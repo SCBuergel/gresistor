@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { EncryptionService, ShamirSecretSharing, EncryptedDataStorageService, KeyShareStorageService, ShamirConfig, KeyShardStorageBackend, EncryptedDataStorage, SafeConfig, AuthData, AuthorizationType, KeyShard, SafeAuthService } from '@gresistor/library'
 import { KeyShareRegistryService } from '@gresistor/library'
+import { SIWESafeAuthService } from '@gresistor/library'
 import { SiweMessage } from 'siwe'
 import { ethers } from 'ethers'
 
@@ -63,8 +64,11 @@ export default function RestoreComponent({ shamirConfig, keyShardStorageBackend,
     rpcProvider: 'https://rpc.gnosischain.com'
   })
   const [isWalletConnected, setIsWalletConnected] = useState(false)
+  const [selectedWalletType, setSelectedWalletType] = useState<'injected' | 'walletconnect'>('injected')
   const [connectedAddress, setConnectedAddress] = useState<string>('')
   const [safeAuthService, setSafeAuthService] = useState<SafeAuthService | null>(null)
+  const [siweAuthService, setSiweAuthService] = useState<SIWESafeAuthService | null>(null)
+  const [connectedSiweService, setConnectedSiweService] = useState<SIWESafeAuthService | null>(null)
 
   const loadingRef = useRef(false)
 
@@ -91,15 +95,44 @@ export default function RestoreComponent({ shamirConfig, keyShardStorageBackend,
     if (safeConfig.safeAddress && safeConfig.chainId) {
       setSiweConfig(prev => ({
         ...prev,
-        safeAddress: safeConfig.safeAddress,
+        // Only set safeAddress if it's not already set by user input
+        safeAddress: prev.safeAddress || safeConfig.safeAddress,
         chainId: safeConfig.chainId
       }))
       
       // Initialize SafeAuthService with current config
       const authService = new SafeAuthService(safeConfig)
       setSafeAuthService(authService)
+      
+      // Initialize SIWE Safe Auth Service with WalletConnect Project ID
+      console.log('🔍 Debug environment variables:')
+      console.log('  - process.env.REACT_APP_WALLETCONNECT_PROJECT_ID:', process.env.REACT_APP_WALLETCONNECT_PROJECT_ID)
+      console.log('  - process.env.VITE_WALLETCONNECT_PROJECT_ID:', process.env.VITE_WALLETCONNECT_PROJECT_ID)
+      console.log('  - Full process.env:', process.env)
+      
+      // Debug Safe configuration
+      console.log('🔍 Debug Safe configuration:')
+      console.log('  - safeConfig.safeAddress:', safeConfig.safeAddress)
+      console.log('  - siweConfig.safeAddress:', siweConfig.safeAddress)
+      console.log('  - safeConfig.chainId:', safeConfig.chainId)
+      console.log('  - Full safeConfig:', safeConfig)
+      
+      // Use the UI Safe address if available, otherwise fall back to safeConfig
+      const actualSafeConfig = {
+        ...safeConfig,
+        safeAddress: siweConfig.safeAddress || safeConfig.safeAddress
+      }
+      console.log('🔧 Using Safe config for authentication:', actualSafeConfig)
+      
+      // TEMPORARY: Hardcode Project ID while debugging env var issue
+      const walletConnectProjectId = process.env.REACT_APP_WALLETCONNECT_PROJECT_ID || process.env.VITE_WALLETCONNECT_PROJECT_ID || '2864e622c722280f9c0a24c282c1c18d'
+      console.log('🔧 Initializing SIWESafeAuthService with Project ID:', walletConnectProjectId)
+      console.log('🐛 TEMP: Using hardcoded Project ID to unblock authentication')
+      
+      const siweService = new SIWESafeAuthService(actualSafeConfig, walletConnectProjectId)
+      setSiweAuthService(siweService)
     }
-  }, [safeConfig])
+  }, [safeConfig, siweConfig.safeAddress])
 
   const loadActiveServices = async () => {
     console.log('🔄 Loading active services...')
@@ -168,38 +201,63 @@ export default function RestoreComponent({ shamirConfig, keyShardStorageBackend,
   // Secure wallet connection with Safe owner validation
   const connectWallet = async () => {
     try {
-      if (!safeAuthService) {
-        throw new Error('Safe authentication service not initialized')
-      }
-
-      // Use SafeAuthService which validates that connected wallet is a Safe owner
-      const address = await safeAuthService.connectWallet()
+      console.log(`🔗 Connecting ${selectedWalletType} wallet...`)
+      console.log('🔍 DEBUG: Current Safe addresses:')
+      console.log('  - siweConfig.safeAddress:', siweConfig.safeAddress)
+      console.log('  - safeConfig.safeAddress:', safeConfig.safeAddress)
       
+      // Create a fresh SIWESafeAuthService with the current UI Safe address
+      const currentSafeConfig = {
+        ...safeConfig,
+        safeAddress: siweConfig.safeAddress || safeConfig.safeAddress
+      }
+      console.log('🔧 Creating fresh SIWESafeAuthService with current Safe address:', currentSafeConfig.safeAddress)
+      
+      const walletConnectProjectId = process.env.REACT_APP_WALLETCONNECT_PROJECT_ID || process.env.VITE_WALLETCONNECT_PROJECT_ID || '2864e622c722280f9c0a24c282c1c18d'
+      const freshSiweService = new SIWESafeAuthService(currentSafeConfig, walletConnectProjectId)
+      
+      const address = await freshSiweService.connectWallet(selectedWalletType)
       setConnectedAddress(address)
       setIsWalletConnected(true)
       
-      console.log(`✅ Wallet connected and verified as Safe owner: ${address}`)
+      // Store the connected service for later use in authentication
+      setConnectedSiweService(freshSiweService)
+      
+      console.log(`✅ ${selectedWalletType} wallet connected: ${address}`)
       return address
     } catch (error) {
-      console.error('Failed to connect wallet:', error)
+      console.error(`Failed to connect ${selectedWalletType} wallet:`, error)
       throw error
     }
   }
 
   // Secure Safe authentication message signing
   const signAuthMessage = async (): Promise<AuthData> => {
-    if (!safeAuthService || !connectedAddress) {
-      throw new Error('Safe authentication service not initialized or wallet not connected')
+    // Debug: Log current connection state
+    console.log('🔍 Debug - Authentication check:')
+    console.log('  - isWalletConnected:', isWalletConnected)
+    console.log('  - connectedAddress:', connectedAddress)
+    console.log('  - siweConfig.safeAddress:', siweConfig.safeAddress)
+    console.log('  - safeConfig.safeAddress:', safeConfig.safeAddress)
+
+    if (!isWalletConnected) {
+      throw new Error('Wallet not connected. Please connect your wallet first.')
     }
 
     try {
-      // Use SafeAuthService to create and sign a proper EIP-712 message
-      const authData = await safeAuthService.signAuthMessage('Backup Shard Access')
+      console.log('📝 Signing SIWE authentication message...')
       
-      console.log(`✅ Safe authentication message signed by verified owner: ${authData.ownerAddress}`)
+      if (!connectedSiweService) {
+        throw new Error('No connected SIWE service available. Please connect your wallet first.')
+      }
+      
+      console.log('🔗 Using connected SIWE service for signing')
+      
+      const authData = await connectedSiweService.signAuthMessage('Gresistor Shard Access')
+      console.log('✅ SIWE message signed successfully')
       return authData
     } catch (error) {
-      console.error('Failed to sign authentication message:', error)
+      console.error('❌ Failed to sign SIWE message:', error)
       throw error
     }
   }
@@ -433,7 +491,7 @@ export default function RestoreComponent({ shamirConfig, keyShardStorageBackend,
                     value={backup.hash}
                     onChange={(e) => setEncryptedBlobHash(e.target.value)}
                   />
-                  {backup.timestamp.toISOString()} ({backup.size} bytes)
+                  {backup.timestamp.toLocaleString()} ({backup.size} bytes)
                 </label>
               </div>
             ))}
@@ -564,17 +622,41 @@ export default function RestoreComponent({ shamirConfig, keyShardStorageBackend,
                 
                 <div style={{ marginBottom: '10px' }}>
                   {!isWalletConnected ? (
-                    <button 
-                      onClick={async () => {
-                        try {
-                          await connectWallet()
-                        } catch (error) {
-                          alert(`Failed to connect wallet: ${error instanceof Error ? error.message : 'Unknown error'}`)
-                        }
-                      }}
-                    >
-                      Connect Wallet
-                    </button>
+                    <div>
+                      <div style={{ marginBottom: '10px' }}>
+                        <label style={{ marginRight: '10px' }}>
+                          <input
+                            type="radio"
+                            value="injected"
+                            checked={selectedWalletType === 'injected'}
+                            onChange={(e) => setSelectedWalletType(e.target.value as 'injected' | 'walletconnect')}
+                            style={{ marginRight: '5px' }}
+                          />
+                          Injected Wallet (MetaMask, etc.)
+                        </label>
+                        <label>
+                          <input
+                            type="radio"
+                            value="walletconnect"
+                            checked={selectedWalletType === 'walletconnect'}
+                            onChange={(e) => setSelectedWalletType(e.target.value as 'injected' | 'walletconnect')}
+                            style={{ marginRight: '5px' }}
+                          />
+                          WalletConnect
+                        </label>
+                      </div>
+                      <button 
+                        onClick={async () => {
+                          try {
+                            await connectWallet()
+                          } catch (error) {
+                            alert(`Failed to connect ${selectedWalletType} wallet: ${error instanceof Error ? error.message : 'Unknown error'}`)
+                          }
+                        }}
+                      >
+                        Connect {selectedWalletType === 'walletconnect' ? 'WalletConnect' : 'Injected Wallet'}
+                      </button>
+                    </div>
                   ) : (
                     <div>
                       <p>✅ <strong>Connected:</strong> {connectedAddress}</p>
@@ -668,6 +750,7 @@ export default function RestoreComponent({ shamirConfig, keyShardStorageBackend,
                       <div style={{ marginLeft: '20px', fontSize: '0.8em' }}>
                         <p>Size: {shard.data.length} bytes</p>
                         <p>Owner: {shard.authorizationAddress}</p>
+                        <p>Created: {shard.timestamp ? shard.timestamp.toLocaleString() : 'Legacy shard (no timestamp)'}</p>
                       </div>
                     </div>
                   ))}

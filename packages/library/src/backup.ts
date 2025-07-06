@@ -279,7 +279,8 @@ export class BackupService {
                   data: matchingShard.data,
                   threshold: this.shamir['config'].threshold,
                   totalShares: this.shamir['config'].totalShares,
-                  authorizationAddress: matchingShard.authorizationAddress
+                  authorizationAddress: matchingShard.authorizationAddress,
+                  timestamp: matchingShard.timestamp || new Date()
                 });
               } else {
                 console.warn(`❌ No shard found in "${serviceName}" with timestamp ${targetTimestamp}`);
@@ -322,7 +323,8 @@ export class BackupService {
                   data: latestShard.data,
                   threshold: this.shamir['config'].threshold,
                   totalShares: this.shamir['config'].totalShares,
-                  authorizationAddress: latestShard.authorizationAddress
+                  authorizationAddress: latestShard.authorizationAddress,
+                  timestamp: latestShard.timestamp || new Date()
                 });
               } else {
                 console.warn(`❌ Authorization failed for latest shard in "${serviceName}"`);
@@ -339,7 +341,8 @@ export class BackupService {
             id: `remote_shard_${i}`,
             data: shardData,
             threshold: request.requiredShards,
-            totalShares: request.shardIds.length
+            totalShares: request.shardIds.length,
+            timestamp: new Date()
           });
         }
       }

@@ -38,7 +38,7 @@ export default function BackupComponent({ shamirConfig, keyShardStorageBackend, 
   
   // Per-service authentication data
   const [noAuthData, setNoAuthData] = useState<{ownerAddress: string}>({ownerAddress: '123'})
-  const [mockSigData, setMockSigData] = useState<{ownerAddress: string, signature: string}>({ownerAddress: '123', signature: '246'})
+  const [mockSigData, setMockSigData] = useState<{ownerAddress: string}>({ownerAddress: '123'})
   const [safeData, setSafeData] = useState<{safeAddress: string, chainId: number}>({
     safeAddress: '0xCadD4Ea3BCC361Fc4aF2387937d7417be8d7dfC2',
     chainId: 100 // Default to Gnosis Chain
@@ -135,7 +135,7 @@ export default function BackupComponent({ shamirConfig, keyShardStorageBackend, 
         }
         authData = {
           ownerAddress: mockSigData.ownerAddress.trim(),
-          signature: mockSigData.signature.trim() // Still include signature for display purposes
+          signature: '' // No signature needed for backup
         }
       } else if (serviceInfo.authType === 'safe-signature') {
         if (!safeData.safeAddress.trim() || !safeData.chainId) {
@@ -377,18 +377,7 @@ export default function BackupComponent({ shamirConfig, keyShardStorageBackend, 
                         />
                       </label>
                     </div>
-                    <div>
-                      <label>
-                        Signature:
-                        <input
-                          type="text"
-                          value={mockSigData.signature}
-                          onChange={(e) => setMockSigData({...mockSigData, signature: e.target.value})}
-                          placeholder="246"
-                        />
-                      </label>
-                    </div>
-                    <p><small>Signature should be address × 2 (e.g., 123 × 2 = 246)</small></p>
+                    <p><small>Only owner address is needed for backup. Signature verification happens during restore.</small></p>
                   </div>
                 )}
                 
@@ -574,7 +563,7 @@ export default function BackupComponent({ shamirConfig, keyShardStorageBackend, 
             </div>
           )}
           
-          <p><b>Backup completed at:</b> {backupResult.metadata.timestamp.toISOString()}</p>
+          <p><b>Backup completed at:</b> {backupResult.metadata.timestamp.toLocaleString()}</p>
           <p><b>Blob Hash:</b> {backupResult.blobHash}</p>
         </div>
       )}

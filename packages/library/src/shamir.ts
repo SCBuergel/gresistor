@@ -28,7 +28,8 @@ export class ShamirSecretSharing {
           id: `share_${i + 1}`,
           data: shares[i],
           threshold,
-          totalShares
+          totalShares,
+          timestamp: new Date()
         });
       }
       
