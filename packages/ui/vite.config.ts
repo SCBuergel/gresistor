@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
+// https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
   base: process.env.NODE_ENV === 'production' ? '/gresistor/' : '/',
@@ -14,8 +15,9 @@ export default defineConfig({
   },
   define: {
     global: 'globalThis',
-    'process.env.REACT_APP_WALLETCONNECT_PROJECT_ID': JSON.stringify(process.env.REACT_APP_WALLETCONNECT_PROJECT_ID || process.env.VITE_WALLETCONNECT_PROJECT_ID),
-    'process.env.VITE_WALLETCONNECT_PROJECT_ID': JSON.stringify(process.env.VITE_WALLETCONNECT_PROJECT_ID || process.env.REACT_APP_WALLETCONNECT_PROJECT_ID),
+    // Force inject environment variables for process.env access
+    'process.env.REACT_APP_WALLETCONNECT_PROJECT_ID': JSON.stringify(process.env.REACT_APP_WALLETCONNECT_PROJECT_ID),
+    'process.env.VITE_WALLETCONNECT_PROJECT_ID': JSON.stringify(process.env.VITE_WALLETCONNECT_PROJECT_ID),
   },
   resolve: {
     alias: {
@@ -28,4 +30,4 @@ export default defineConfig({
   optimizeDeps: {
     include: ['buffer', 'crypto-browserify', 'stream-browserify', 'process'],
   },
-}) 
+})

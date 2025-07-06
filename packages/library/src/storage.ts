@@ -216,21 +216,30 @@ export class KeyShareStorageService {
   }
 
   /**
-   * Initialize the service in the registry
-   */
-  private async initializeService(): Promise<void> {
-    try {
+ * Initialize the service in the registry
+ */
+private async initializeService(): Promise<void> {
+  try {
+    // Check if service already exists before attempting to create
+    const existingServices = await this.registry.listServices();
+    const serviceExists = existingServices.some(service => service.name === this.serviceName);
+    
+    if (!serviceExists) {
       await this.registry.registerService({
         name: this.serviceName,
         description: this.authConfig.description,
         authType: this.authConfig.authType,
         isActive: true
       });
-    } catch (error) {
-      // Service may already exist, ignore the error
-      console.log(`Service "${this.serviceName}" already exists or couldn't be created:`, error);
+    }
+  } catch (error) {
+    // Silently ignore service creation errors (likely already exists)
+    // Only log if it's not a "already exists" error
+    if (error instanceof Error && !error.message.includes('already exists')) {
+      console.error(`Failed to initialize service "${this.serviceName}":`, error);
     }
   }
+}
 
   private async getDB(): Promise<IDBDatabase> {
     // Check if we're in a browser environment
