@@ -125,7 +125,7 @@ export default function RestoreComponent({ shamirConfig, keyShardStorageBackend,
       console.log('🔧 Using Safe config for authentication:', actualSafeConfig)
       
       // Get WalletConnect Project ID from environment variables (Vite style)
-      const walletConnectProjectId = (import.meta as any).env.VITE_WALLETCONNECT_PROJECT_ID || (import.meta as any).env.REACT_APP_WALLETCONNECT_PROJECT_ID
+      const walletConnectProjectId = (import.meta as any).env?.VITE_WALLETCONNECT_PROJECT_ID || (import.meta as any).env?.REACT_APP_WALLETCONNECT_PROJECT_ID || process.env.VITE_WALLETCONNECT_PROJECT_ID || process.env.REACT_APP_WALLETCONNECT_PROJECT_ID
       
       console.log('🔍 Debug environment variables:')
       console.log('  - import.meta.env.VITE_WALLETCONNECT_PROJECT_ID:', (import.meta as any).env.VITE_WALLETCONNECT_PROJECT_ID)
@@ -223,7 +223,7 @@ export default function RestoreComponent({ shamirConfig, keyShardStorageBackend,
       }
       console.log('🔧 Creating fresh SIWESafeAuthService with current Safe address:', currentSafeConfig.safeAddress)
       
-      const walletConnectProjectId = (import.meta as any).env.VITE_WALLETCONNECT_PROJECT_ID || (import.meta as any).env.REACT_APP_WALLETCONNECT_PROJECT_ID
+      const walletConnectProjectId = (import.meta as any).env?.VITE_WALLETCONNECT_PROJECT_ID || (import.meta as any).env?.REACT_APP_WALLETCONNECT_PROJECT_ID || process.env.VITE_WALLETCONNECT_PROJECT_ID || process.env.REACT_APP_WALLETCONNECT_PROJECT_ID
       
       if (!walletConnectProjectId) {
         throw new Error('WalletConnect Project ID not found in environment variables. Please set VITE_WALLETCONNECT_PROJECT_ID in your .env file')

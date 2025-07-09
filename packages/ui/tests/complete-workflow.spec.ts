@@ -1,8 +1,13 @@
 import { test, expect } from './fixtures';
+import { bootstrap, getWallet, MetaMaskWallet } from '@tenkeylabs/dappwright';
 
 // Debug mode - set to true to enable page.pause() at the end of each test
 const DEBUG = process.env.DEBUG === 'true' || process.env.PWDEBUG === '1';
 const WAIT_TIME = DEBUG ? 1000 : 500;
+
+// MetaMask test configuration
+const TEST_MNEMONIC = 'zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo wrong';
+const METAMASK_PASSWORD = 'Mmmtttmsk...';
 
 test.describe.serial('Complete Gresistor Workflow', () => {
   let page;
@@ -286,5 +291,49 @@ test.describe.serial('Complete Gresistor Workflow', () => {
     console.log('🎉 COMPLETE WORKFLOW PASSED: Services, Shamir config, backup, and restore all working with state persistence!');
     
     if (DEBUG) await page.pause();
+  });
+
+  test('07 - MetaMask Setup: Initialize MetaMask wallet for injection', async () => {
+    console.log('🦊 Test 07: Setting up MetaMask wallet...');
+    
+    let metamaskWallet;
+    let metamaskContext;
+    
+    try {
+      // Initialize MetaMask with dappwright
+      console.log('Initializing MetaMask with test mnemonic...');
+      const [wallet, _, context] = await bootstrap("", {
+        wallet: "metamask",
+        version: MetaMaskWallet.recommendedVersion,
+        seed: TEST_MNEMONIC,
+        password: METAMASK_PASSWORD,
+        headless: false,
+      });
+      
+      metamaskWallet = await getWallet("metamask", context);
+      metamaskContext = context;
+      
+      console.log('✓ MetaMask extension loaded and configured');
+      console.log('✓ Wallet initialized with test mnemonic');
+      console.log('✓ MetaMask is ready for injection into the page');
+      
+      // Verify MetaMask is properly initialized
+      expect(metamaskWallet).toBeDefined();
+      
+      console.log('✅ Test 07: MetaMask setup completed successfully');
+      console.log('🦊 MetaMask is now ready for wallet connection tests');
+      
+      if (DEBUG) await page.pause();
+      
+    } catch (error) {
+      console.error('❌ MetaMask setup failed:', error);
+      throw error;
+    } finally {
+      // Clean up MetaMask context
+      if (metamaskContext) {
+        await metamaskContext.close();
+        console.log('✓ MetaMask context cleaned up');
+      }
+    }
   });
 });
