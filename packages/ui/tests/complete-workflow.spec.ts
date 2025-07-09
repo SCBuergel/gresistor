@@ -11,11 +11,55 @@ const METAMASK_PASSWORD = 'Mmmtttmsk...';
 
 test.describe.serial('Complete Gresistor Workflow', () => {
   let page;
+  let metamaskWallet;
+  let metamaskContext;
 
   test.beforeAll(async ({ browser }) => {
     const context = await browser.newContext();
-    page = await context.newPage();     // one tab for all tests
+    page = await context.newPage();
     await page.goto('http://localhost:3000');
+  });
+
+  test.afterAll(async () => {
+    // Clean up MetaMask context
+    if (metamaskContext) {
+      await metamaskContext.close();
+      console.log('✓ MetaMask context cleaned up');
+    }
+  });
+
+  test('01 - MetaMask Setup: Initialize MetaMask wallet for injection', async () => {
+    console.log('🦊 Test 01: Setting up MetaMask wallet...');
+    
+    try {
+      // Initialize MetaMask with dappwright in beforeAll
+      console.log('Initializing MetaMask with test mnemonic...');
+      const [wallet, _, context] = await bootstrap("", {
+        wallet: "metamask",
+        version: MetaMaskWallet.recommendedVersion,
+        seed: TEST_MNEMONIC,
+        password: METAMASK_PASSWORD,
+        headless: false,
+      });
+      
+      metamaskWallet = await getWallet("metamask", context);
+      metamaskContext = context;
+      
+      console.log('✓ MetaMask extension loaded and configured');
+      console.log('✓ Wallet initialized with test mnemonic');
+      console.log('✓ MetaMask is ready for injection into the page');
+      
+      // Create the main page directly in the MetaMask context
+      page = await metamaskContext.newPage();
+      await page.goto('http://localhost:3000');
+      
+      console.log('✅ MetaMask setup completed and page loaded');
+      console.log('🦊 MetaMask is now ready for wallet connection tests');
+      
+    } catch (error) {
+      console.error('❌ MetaMask setup failed:', error);
+      throw error;
+    }
   });
 
   test('01 - App Navigation: Verify page loads and navigation buttons work', async () => {
@@ -293,47 +337,28 @@ test.describe.serial('Complete Gresistor Workflow', () => {
     if (DEBUG) await page.pause();
   });
 
-  test('07 - MetaMask Setup: Initialize MetaMask wallet for injection', async () => {
-    console.log('🦊 Test 07: Setting up MetaMask wallet...');
+  test('07 - MetaMask Integration: Verify MetaMask is ready for wallet operations', async () => {
+    console.log('🦊 Test 07: Verifying MetaMask integration...');
     
-    let metamaskWallet;
-    let metamaskContext;
+    // Verify MetaMask is properly initialized from beforeAll
+    expect(metamaskWallet).toBeDefined();
+    expect(metamaskContext).toBeDefined();
     
-    try {
-      // Initialize MetaMask with dappwright
-      console.log('Initializing MetaMask with test mnemonic...');
-      const [wallet, _, context] = await bootstrap("", {
-        wallet: "metamask",
-        version: MetaMaskWallet.recommendedVersion,
-        seed: TEST_MNEMONIC,
-        password: METAMASK_PASSWORD,
-        headless: false,
-      });
-      
-      metamaskWallet = await getWallet("metamask", context);
-      metamaskContext = context;
-      
-      console.log('✓ MetaMask extension loaded and configured');
-      console.log('✓ Wallet initialized with test mnemonic');
-      console.log('✓ MetaMask is ready for injection into the page');
-      
-      // Verify MetaMask is properly initialized
-      expect(metamaskWallet).toBeDefined();
-      
-      console.log('✅ Test 07: MetaMask setup completed successfully');
-      console.log('🦊 MetaMask is now ready for wallet connection tests');
-      
-      if (DEBUG) await page.pause();
-      
-    } catch (error) {
-      console.error('❌ MetaMask setup failed:', error);
-      throw error;
-    } finally {
-      // Clean up MetaMask context
-      if (metamaskContext) {
-        await metamaskContext.close();
-        console.log('✓ MetaMask context cleaned up');
-      }
-    }
+    console.log('✓ MetaMask wallet is available and ready');
+    console.log('✓ MetaMask context is active');
+    console.log('✓ Page is running in MetaMask-enabled context');
+    
+    // Additional verification that MetaMask is injected into the page
+    const hasEthereum = await page.evaluate(() => {
+      return typeof window.ethereum !== 'undefined';
+    });
+    
+    expect(hasEthereum).toBe(true);
+    console.log('✓ Ethereum provider is injected into the page');
+    
+    console.log('✅ Test 07: MetaMask integration verified successfully');
+    console.log('🦊 MetaMask is ready for wallet connection operations');
+    
+    if (DEBUG) await page.pause();
   });
 });
