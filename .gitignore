@@ -119,3 +119,8 @@ Thumbs.db
 
 # Prettier cache
 .prettiercache
+
+# Playwright test results and reports
+test-results/
+playwright-report/
+playwright/.cache/
