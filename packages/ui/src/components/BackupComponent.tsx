@@ -94,7 +94,7 @@ export default function BackupComponent({ shamirConfig, keyShardStorageBackend, 
     }
   }
 
-  const toggleServiceSelection = (serviceName: string) => {
+  const toggleServiceSelection = async (serviceName: string) => {
     setAllServices(prev => {
       const updated = prev.map(s => 
         s.serviceName === serviceName 
@@ -111,6 +111,13 @@ export default function BackupComponent({ shamirConfig, keyShardStorageBackend, 
       
       return updated
     })
+    
+    // If selecting a service, automatically authenticate it
+    const serviceInfo = allServices.find(s => s.serviceName === serviceName)
+    if (serviceInfo && !serviceInfo.isSelected) {
+      // Service is being selected, automatically authenticate it
+      await authenticateService(serviceName)
+    }
   }
 
   const authenticateService = async (serviceName: string) => {
@@ -310,6 +317,7 @@ export default function BackupComponent({ shamirConfig, keyShardStorageBackend, 
       <div>
         <h2>Profile Name</h2>
         <input
+          id="profile-name"
           type="text"
           value={profileName}
           onChange={(e) => setProfileName(e.target.value)}
@@ -320,6 +328,7 @@ export default function BackupComponent({ shamirConfig, keyShardStorageBackend, 
       <div>
         <h2>Profile Age</h2>
         <input
+          id="profile-age"
           type="number"
           value={profileAge}
           onChange={(e) => setProfileAge(parseInt(e.target.value) || 0)}
@@ -354,6 +363,7 @@ export default function BackupComponent({ shamirConfig, keyShardStorageBackend, 
                     <label>
                       Owner Address:
                       <input
+                        data-testid="no-auth-owner-address"
                         type="text"
                         value={noAuthData.ownerAddress}
                         onChange={(e) => setNoAuthData({...noAuthData, ownerAddress: e.target.value})}
@@ -370,6 +380,7 @@ export default function BackupComponent({ shamirConfig, keyShardStorageBackend, 
                       <label>
                         Owner Address:
                         <input
+                          data-testid="mock-auth-owner-address"
                           type="text"
                           value={mockSigData.ownerAddress}
                           onChange={(e) => setMockSigData({...mockSigData, ownerAddress: e.target.value})}
@@ -418,6 +429,7 @@ export default function BackupComponent({ shamirConfig, keyShardStorageBackend, 
                   <div key={service.serviceName} style={{ marginBottom: '15px', padding: '10px', border: `2px solid ${service.isSelected ? 'black' : 'gray'}` }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
                       <button 
+                        data-testid={`service-select-${service.serviceName.toLowerCase().replace(/\s+/g, '-')}`}
                         onClick={() => toggleServiceSelection(service.serviceName)}
                         disabled={!service.isSelected && selectedCount >= shamirConfig.totalShares}
                         style={{ 
@@ -441,30 +453,9 @@ export default function BackupComponent({ shamirConfig, keyShardStorageBackend, 
                       {service.description}
                     </div>
                     
-                    {service.isSelected && (
-                      <div>
-                        {!service.isAuthenticated ? (
-                          <button onClick={() => authenticateService(service.serviceName)}>
-                            Set Authorization
-                          </button>
-                        ) : (
-                          <button onClick={() => clearServiceAuthentication(service.serviceName)}>
-                            Clear Authorization
-                          </button>
-                        )}
-                        
-                        {service.authError && (
-                          <div style={{ marginTop: '5px' }}>
-                            <p>❌ {service.authError}</p>
-                          </div>
-                        )}
-                        
-                        {service.isAuthenticated && service.authData && (
-                          <div style={{ marginTop: '5px', fontSize: '0.8em' }}>
-                            <p>Authorization set for: {service.authData.safeAddress}</p>
-                            {service.authData.chainId && <p>Chain: {service.authData.chainId}</p>}
-                          </div>
-                        )}
+                    {service.isSelected && service.authError && (
+                      <div style={{ marginTop: '5px' }}>
+                        <p>❌ {service.authError}</p>
                       </div>
                     )}
                   </div>

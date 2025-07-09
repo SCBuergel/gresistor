@@ -5,16 +5,14 @@ import { defineConfig, devices } from '@playwright/test';
  */
 export default defineConfig({
   testDir: './tests',
-  /* Run tests in files in parallel */
-  fullyParallel: true,
+  /* IMPORTANT: Single worker for persistent profile - parallel would corrupt IndexedDB */
+  workers: 1,
   /* Fail the build on CI if you accidentally left test.only in the source code. */
   forbidOnly: !!process.env.CI,
-  /* Retry on CI only */
-  retries: process.env.CI ? 2 : 0,
-  /* Opt out of parallel tests on CI. */
-  workers: process.env.CI ? 1 : undefined,
+  /* Retry disabled for persistent profile */
+  retries: 0,
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
-  reporter: 'html',
+  reporter: 'list',
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
     /* Base URL to use in actions like `await page.goto('/')`. */
@@ -22,35 +20,27 @@ export default defineConfig({
 
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry',
+    
+    /* Conditional headless mode - headless when not debugging */
+    headless: !process.env.DEBUG && !process.env.PWDEBUG,
+    launchOptions: {
+      slowMo: process.env.DEBUG || process.env.PWDEBUG ? 500 : 0,
+    },
   },
 
-  /* Configure projects for major browsers */
-  projects: [
-    {
-      name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
-    },
+  /* Set test timeout to allow for visual debugging */
+  timeout: 90000,
 
-    {
-      name: 'firefox',
-      use: { ...devices['Desktop Firefox'] },
-    },
+  /* No projects needed - using persistent profile with single worker */
 
-    {
-      name: 'webkit',
-      use: { ...devices['Desktop Safari'] },
+  webServer: {
+    command: 'pnpm dev',
+    url: 'http://localhost:3000',
+    reuseExistingServer: !process.env.CI,
+    timeout: 5000,
+    env: {
+      REACT_APP_WALLETCONNECT_PROJECT_ID: 'test-project-id-for-playwright',
+      VITE_WALLETCONNECT_PROJECT_ID: 'test-project-id-for-playwright',
     },
-  ],
-
-  /* Webserver disabled - run dev server manually before tests */
-  // webServer: {
-  //   command: 'pnpm dev',
-  //   url: 'http://localhost:3000',
-  //   reuseExistingServer: !process.env.CI,
-  //   timeout: 120 * 1000, // 2 minutes
-  //   env: {
-  //     REACT_APP_WALLETCONNECT_PROJECT_ID: 'test-project-id-for-playwright',
-  //     VITE_WALLETCONNECT_PROJECT_ID: 'test-project-id-for-playwright',
-  //   },
-  // },
+  },
 });

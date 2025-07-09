@@ -544,6 +544,7 @@ export default function RestoreComponent({ shamirConfig, keyShardStorageBackend,
                 <label>
                   Owner Address:
                   <input
+                    data-testid="no-auth-owner-address"
                     type="text"
                     value={noAuthData.ownerAddress}
                     onChange={(e) => setNoAuthData({...noAuthData, ownerAddress: e.target.value})}
@@ -560,6 +561,7 @@ export default function RestoreComponent({ shamirConfig, keyShardStorageBackend,
                   <label>
                     Owner Address:
                     <input
+                      data-testid="mock-auth-owner-address"
                       type="text"
                       value={mockSigData.ownerAddress}
                       onChange={(e) => setMockSigData({...mockSigData, ownerAddress: e.target.value})}
@@ -571,10 +573,11 @@ export default function RestoreComponent({ shamirConfig, keyShardStorageBackend,
                   <label>
                     Signature:
                     <input
+                      data-testid="mock-auth-signature"
                       type="text"
                       value={mockSigData.signature}
                       onChange={(e) => setMockSigData({...mockSigData, signature: e.target.value})}
-                      placeholder="246"
+                      placeholder="Signature"
                     />
                   </label>
                 </div>
@@ -714,11 +717,17 @@ export default function RestoreComponent({ shamirConfig, keyShardStorageBackend,
                 
                 <div style={{ marginTop: '10px' }}>
                   {!service.isAuthenticated ? (
-                    <button onClick={() => authenticateService(service.serviceName)}>
+                    <button 
+                      data-testid={`${service.authType}-authenticate-button`}
+                      onClick={() => authenticateService(service.serviceName)}
+                    >
                       Authenticate
                     </button>
                   ) : (
-                    <button onClick={() => clearServiceAuthentication(service.serviceName)}>
+                    <button 
+                      data-testid={`${service.authType}-clear-auth-button`}
+                      onClick={() => clearServiceAuthentication(service.serviceName)}
+                    >
                       Clear Authentication
                     </button>
                   )}

@@ -89,6 +89,19 @@ This launches:
 pnpm run deploy
 ```
 
+### Testing
+
+```bash
+# Run end-to-end tests (headless, fast)
+pnpm test:e2e
+
+# Run with debug mode (conditional pauses)
+pnpm test:e2e:debug
+
+# Run with visible browser window
+pnpm test:e2e:headed
+```
+
 ---
 
 ## 📖 How It Works
@@ -124,6 +137,51 @@ pnpm run deploy
 - **Blockchain**: Safe SDK, EIP-712/EIP-1271
 - **Privacy**: Enhanced anonymity protocols
 - **CI/CD**: GitHub Actions
+
+---
+
+## 🧪 Testing
+
+### End-to-End Testing with Playwright
+
+The project includes comprehensive **Playwright** tests that validate the complete backup and restore workflow:
+
+#### Test Coverage
+- ✅ **Service Creation** - Configure multiple key share storage services
+- ✅ **Shamir Configuration** - Set up N-of-M threshold schemes (2-of-3, 2-of-2)
+- ✅ **Backup Creation** - Create encrypted backups with profile data
+- ✅ **Authentication Flow** - Test no-auth, mock-signature, and safe-signature services
+- ✅ **Restore Workflow** - Complete backup restoration with shard selection
+- ✅ **State Persistence** - Verify data persists across browser sessions
+
+#### Running Tests
+
+```bash
+# Quick test run (headless, ~5 seconds)
+pnpm test:e2e
+
+# Debug mode with conditional pauses
+pnpm test:e2e:debug
+
+# Visual debugging with browser window
+pnpm test:e2e:headed
+```
+
+#### Test Workflow
+
+The complete test suite validates this end-to-end workflow:
+
+1. **🔧 Service Setup** - Creates 3 storage services with different auth types
+2. **⚙️ Shamir Config** - Configures 2-of-3 threshold, then changes to 2-of-2
+3. **💾 Backup Creation** - Creates backup with profile data using 2 services
+4. **🔄 Restore Process** - Selects backup, authenticates services, selects shards
+5. **✅ Verification** - Confirms profile data is restored and persists
+
+#### Test Features
+- **Persistent Browser Profile** - Uses `.pw-profile` for state persistence across tests
+- **Reliable Selectors** - Uses `data-testid` attributes for stable element targeting
+- **Serial Execution** - Tests run in sequence to maintain state continuity
+- **Fast Execution** - Complete workflow tested in ~5 seconds
 
 ---
 

@@ -209,28 +209,30 @@ export default function ConfigComponent({
         <div>
           <h2>Threshold (N - shares needed to restore)</h2>
           <input
+            id="shamir-threshold"
             type="number"
-            min={MIN_THRESHOLD}
-            max={MAX_THRESHOLD}
             value={shamirConfig.threshold}
             onChange={(e) => setShamirConfig({
               ...shamirConfig,
-              threshold: parseInt(e.target.value) || MIN_THRESHOLD
+              threshold: parseInt(e.target.value) || 2
             })}
+            min={MIN_THRESHOLD}
+            max={shamirConfig.totalShares}
           />
         </div>
 
         <div>
           <h2>Total Shares (M - total shares created)</h2>
           <input
+            id="shamir-total-shares"
             type="number"
-            min={shamirConfig.threshold}
-            max={MAX_TOTAL_SHARES}
             value={shamirConfig.totalShares}
             onChange={(e) => setShamirConfig({
               ...shamirConfig,
-              totalShares: parseInt(e.target.value) || shamirConfig.threshold
+              totalShares: parseInt(e.target.value) || 3
             })}
+            min={shamirConfig.threshold}
+            max={MAX_TOTAL_SHARES}
           />
         </div>
 
@@ -321,6 +323,7 @@ export default function ConfigComponent({
                   <div>
                     <h4>Service Name</h4>
                     <input
+                      id="new-service-name"
                       type="text"
                       value={newServiceName}
                       onChange={(e) => setNewServiceName(e.target.value)}
@@ -330,6 +333,7 @@ export default function ConfigComponent({
                   <div>
                     <h4>Description (optional)</h4>
                     <input
+                      id="new-service-description"
                       type="text"
                       value={newServiceDescription}
                       onChange={(e) => setNewServiceDescription(e.target.value)}
@@ -339,6 +343,7 @@ export default function ConfigComponent({
                   <div>
                     <h4>Authorization Type</h4>
                     <select
+                      id="new-service-auth-type"
                       value={newServiceAuthType}
                       onChange={(e) => setNewServiceAuthType(e.target.value as AuthorizationType)}
                     >

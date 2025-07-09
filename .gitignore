@@ -123,4 +123,7 @@ Thumbs.db
 # Playwright test results and reports
 test-results/
 playwright-report/
+blob-report/
 playwright/.cache/
+# Persistent browser profile for tests
+packages/ui/.pw-profile/

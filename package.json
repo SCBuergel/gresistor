@@ -18,6 +18,9 @@
     "build:ui": "pnpm --filter @gresistor/library build && pnpm --filter @gresistor/ui build",
     "deploy": "pnpm run build:ui",
     "test": "pnpm -r test",
+    "test:e2e": "pnpm --filter @gresistor/ui test",
+    "test:e2e:debug": "DEBUG=true pnpm --filter @gresistor/ui test",
+    "test:e2e:headed": "PWDEBUG=true pnpm --filter @gresistor/ui test",
     "lint": "pnpm -r lint"
   },
   "keywords": ["backup", "encryption", "shamir-secret-sharing", "blockchain"],
