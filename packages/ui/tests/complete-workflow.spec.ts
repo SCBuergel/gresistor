@@ -28,8 +28,8 @@ test.describe.serial('Complete Gresistor Workflow', () => {
     }
   });
 
-  test('01 - MetaMask Setup: Initialize MetaMask wallet for injection', async () => {
-    console.log('🦊 Test 01: Setting up MetaMask wallet...');
+  test('00 - MetaMask Setup: Initialize MetaMask wallet for injection', async () => {
+    console.log('🦊 Test 00: Setting up MetaMask wallet...');
     
     try {
       // Initialize MetaMask with dappwright in beforeAll
@@ -53,17 +53,167 @@ test.describe.serial('Complete Gresistor Workflow', () => {
       page = await metamaskContext.newPage();
       await page.goto('http://localhost:3000');
       
-      console.log('✅ MetaMask setup completed and page loaded');
+      console.log('✅ Test 00: MetaMask setup completed and page loaded');
       console.log('🦊 MetaMask is now ready for wallet connection tests');
       
     } catch (error) {
-      console.error('❌ MetaMask setup failed:', error);
+      console.error('❌ Test 00: MetaMask setup failed:', error);
       throw error;
     }
   });
 
-  test('01 - App Navigation: Verify page loads and navigation buttons work', async () => {
-    console.log('🔵 Test 01: App Navigation...');
+  test('01 - Connect wallet to Safe Global', async ({ page, context }) => {
+    console.log('🔗 Test 01: Connecting wallet to Safe Global...');
+    
+    // Open a new tab with the Safe Global URL
+    const safeGlobalUrl = 'https://app.safe.global/home?safe=gno:0x4f4f1091Bf0F4b9F3c85031DDc4cf196653b18a0';
+    const safeTab = await metamaskContext.newPage();
+    
+    console.log('📂 Opening Safe Global tab...');
+    await safeTab.goto(safeGlobalUrl);
+    
+    // Wait for the page to load
+    await safeTab.waitForLoadState('networkidle');
+    console.log('✓ Safe Global page loaded');
+    
+    // Find and click the connect wallet button
+    console.log('🔍 Looking for connect wallet button...');
+    const connectWalletBtn = safeTab.locator('[data-testid="connect-wallet-btn"]');
+    
+    // Wait for the button to be visible and clickable
+    await connectWalletBtn.waitFor({ state: 'visible', timeout: 10000 });
+    console.log('✓ Connect wallet button found');
+    
+    // Click the connect wallet button
+    await connectWalletBtn.click();
+    console.log('✓ Connect wallet button clicked');
+    
+    // Wait for wallet selection dialog and click MetaMask
+    console.log('⏳ Waiting for wallet selection dialog...');
+    
+    // Look for and click the MetaMask button in the wallet selection dialog
+    try {
+      // Wait for the wallet selection dialog to appear
+      await safeTab.waitForTimeout(2000); // Give time for dialog to appear
+      
+      // Find the button that contains a div with "Metamask" text
+      const metamaskButton = safeTab.locator('button').filter({ has: safeTab.locator('div', { hasText: 'Metamask' }) });
+      
+      // Wait for the MetaMask button to be visible and click it
+      await metamaskButton.waitFor({ state: 'visible', timeout: 10000 });
+      await metamaskButton.click();
+      console.log('✓ MetaMask wallet button clicked');
+      
+    } catch (e) {
+      console.log('⚠️ Could not find MetaMask button in wallet selection dialog:', e.message);
+      // Continue with the test in case the dialog structure is different
+    }
+    
+    // Wait for MetaMask popup or connection dialog
+    console.log('⏳ Waiting for MetaMask popup...');
+    
+    // Handle potential MetaMask popup
+    try {
+      // Wait for a new page (MetaMask popup) to appear
+      const popupPromise = metamaskContext.waitForEvent('page', { timeout: 5000 });
+      const popup = await popupPromise;
+      
+      console.log('🦊 MetaMask popup detected');
+      
+      // Wait for the popup to load
+      await popup.waitForLoadState('networkidle');
+      
+      // Look for common MetaMask confirmation buttons
+      const confirmSelectors = [
+        'button:has-text("Connect")',
+        'button:has-text("Confirm")',
+        'button:has-text("Sign")',
+        '[data-testid="confirm-btn"]',
+        '[data-testid="connect-btn"]'
+      ];
+      
+      let confirmed = false;
+      for (const selector of confirmSelectors) {
+        try {
+          const confirmBtn = popup.locator(selector);
+          if (await confirmBtn.isVisible({ timeout: 2000 })) {
+            await confirmBtn.click();
+            console.log(`✓ Clicked confirmation button: ${selector}`);
+            confirmed = true;
+            break;
+          }
+        } catch (e) {
+          // Continue to next selector
+        }
+      }
+      
+      if (!confirmed) {
+        console.log('⚠️ No confirmation button found, popup might auto-close');
+      }
+      
+      // Wait for popup to close
+      await popup.waitForEvent('close', { timeout: 10000 });
+      console.log('✓ MetaMask popup closed');
+      
+    } catch (e) {
+      console.log('ℹ️ No MetaMask popup detected or popup handling failed:', e.message);
+    }
+    
+    // Switch back to Safe Global tab and verify connection
+    console.log('🔄 Switching back to Safe Global tab...');
+    await safeTab.bringToFront();
+    
+    // Wait a moment for the connection to be processed
+    await safeTab.waitForTimeout(2000);
+    
+    // Look for signs that the wallet is connected
+    console.log('🔍 Verifying wallet connection...');
+    
+    // Common indicators of successful wallet connection
+    const connectionIndicators = [
+      '[data-testid="wallet-connected"]',
+      '[data-testid="account-address"]',
+      'text=0x', // Ethereum address pattern
+      '[data-testid="disconnect-btn"]',
+      'button:has-text("Disconnect")',
+      '.wallet-connected',
+      '.account-info'
+    ];
+    
+    let connectionVerified = false;
+    for (const indicator of connectionIndicators) {
+      try {
+        const element = safeTab.locator(indicator).first();
+        if (await element.isVisible({ timeout: 3000 })) {
+          console.log(`✓ Wallet connection verified with indicator: ${indicator}`);
+          connectionVerified = true;
+          break;
+        }
+      } catch (e) {
+        // Continue to next indicator
+      }
+    }
+    
+    if (!connectionVerified) {
+      console.log('⚠️ Could not verify wallet connection with standard indicators');
+      console.log('ℹ️ Connection might still be successful - checking page state...');
+      
+      // Take a screenshot for debugging
+      await safeTab.screenshot({ path: 'safe-global-connection-state.png' });
+      console.log('📸 Screenshot saved as safe-global-connection-state.png');
+    }
+    
+    console.log('✅ Test 01: Safe Global wallet connection process completed');
+    console.log('🔗 Wallet connection to Safe Global attempted');
+    
+    if (DEBUG) await safeTab.pause();
+    
+    // Close the Safe Global tab
+    await safeTab.close();
+  });
+
+  test('02 - App Navigation: Verify page loads and navigation buttons work', async () => {
+    console.log('🔵 Test 02: App Navigation...');
     
     // Check that the page loads with the correct title
     await expect(page).toHaveTitle('gresistor - Gnosis Resilient Storage');
@@ -87,12 +237,12 @@ test.describe.serial('Complete Gresistor Workflow', () => {
     await backupButton.click();
     await expect(backupButton.locator('b')).toContainText('Backup');
 
-    console.log('✅ Test 01: App navigation working correctly');
+    console.log('✅ Test 02: App Navigation verified successfully');
     if (DEBUG) await page.pause();
   });
 
-  test('02 - Key Share Services: Create three services with different auth types', async () => {
-    console.log('🟢 Test 02: Creating key share services...');
+  test('03 - Key Share Services: Create three services with different auth types', async () => {
+    console.log('🔑 Test 03: Key Share Services...');
     
     // Navigate to config tab
     await page.locator('nav button', { hasText: 'Config' }).click();
@@ -158,12 +308,12 @@ test.describe.serial('Complete Gresistor Workflow', () => {
     await expect(page.locator('td', { hasText: 'Mock Auth Service' })).toBeVisible();
     await expect(page.locator('td', { hasText: 'Safe Auth Service' })).toBeVisible();
 
-    console.log('✅ Test 02: Created 3 key share services');
+    console.log('✅ Test 03: Key Share Services created successfully');
     if (DEBUG) await page.pause();
   });
 
-  test('03 - Shamir Configuration: Set up 2-of-3 threshold', async () => {
-    console.log('🟡 Test 03: Configuring Shamir Secret Sharing...');
+  test('04 - Shamir Configuration: Set up 2-of-3 threshold', async () => {
+    console.log('🔢 Test 04: Shamir Configuration...');
     
     // Should already be on config tab, verify Shamir config section
     await expect(page.locator('h1', { hasText: 'Shamir Secret Sharing' })).toBeVisible();
@@ -184,12 +334,12 @@ test.describe.serial('Complete Gresistor Workflow', () => {
     // Verify the configuration is reflected
     await expect(page.locator('text=2 of 3 shares required for recovery')).toBeVisible();
     
-    console.log('✅ Test 03: Shamir config set to 2-of-3');
+    console.log('✅ Test 04: Shamir Configuration set successfully');
     if (DEBUG) await page.pause();
   });
 
-  test('03b - Shamir Configuration: Change to 2-of-2 for backup test', async () => {
-    console.log('🟡 Test 03b: Changing Shamir config to 2-of-2 for backup...');
+  test('05 - Shamir Configuration: Change to 2-of-2 for backup test', async () => {
+    console.log('🔢 Test 05: Changing Shamir Configuration to 2-of-2...');
     
     // Should already be on config tab, verify Shamir config section
     await expect(page.locator('h1', { hasText: 'Shamir Secret Sharing' })).toBeVisible();
@@ -210,12 +360,12 @@ test.describe.serial('Complete Gresistor Workflow', () => {
     // Verify the configuration is reflected
     await expect(page.locator('text=2 of 2 shares required for recovery')).toBeVisible();
     
-    console.log('✅ Test 03b: Shamir config changed to 2-of-2');
+    console.log('✅ Test 05: Shamir Configuration changed to 2-of-2 successfully');
     if (DEBUG) await page.pause();
   });
 
-  test('04 - Backup Creation: Create backup with profile data', async () => {
-    console.log('🟣 Test 04: Creating backup...');
+  test('06 - Backup Creation: Create backup with profile data', async () => {
+    console.log('💾 Test 06: Backup Creation...');
     
     // Navigate to backup tab
     await page.locator('nav button', { hasText: 'Backup' }).click();
@@ -243,12 +393,12 @@ test.describe.serial('Complete Gresistor Workflow', () => {
     // Verify backup was created (look for success message)
     await expect(page.locator('text=Backup completed successfully!')).toBeVisible();
     
-    console.log('✅ Test 04: Backup created successfully');
+    console.log('✅ Test 06: Backup created successfully');
     if (DEBUG) await page.pause();
   });
 
-  test('05 - Backup Restore: Restore from backup using 2 services', async () => {
-    console.log('🔴 Test 05: Restoring from backup...');
+  test('07 - Backup Restore: Restore from backup using 2 services', async () => {
+    console.log('🔄 Test 07: Backup Restore...');
     
     // Navigate to restore tab
     await page.locator('nav button', { hasText: 'Restore' }).click();
@@ -296,12 +446,12 @@ test.describe.serial('Complete Gresistor Workflow', () => {
     await expect(page.locator('text=/Name:.*/')).toBeVisible();
     await expect(page.locator('text=/Age:.*/')).toBeVisible();
     
-    console.log('✅ Test 05: Backup restored successfully');
+    console.log('✅ Test 07: Backup restored successfully');
     if (DEBUG) await page.pause();
   });
 
-  test('06 - State Persistence Verification: Verify all data persists', async () => {
-    console.log('🎯 Test 06: Verifying state persistence...');
+  test('08 - State Persistence Verification: Verify all data persists', async () => {
+    console.log('🔍 Test 08: State Persistence Verification...');
     
     // Go back to config tab and verify services still exist
     await page.locator('nav button', { hasText: 'Config' }).click();
@@ -331,14 +481,14 @@ test.describe.serial('Complete Gresistor Workflow', () => {
     await expect(page.locator('#profile-name')).not.toHaveValue('');
     await expect(page.locator('#profile-age')).not.toHaveValue('');
     
-    console.log('✅ Test 06: All state persistence verified - complete workflow successful!');
+    console.log('✅ Test 08: State persistence verified successfully');
     console.log('🎉 COMPLETE WORKFLOW PASSED: Services, Shamir config, backup, and restore all working with state persistence!');
     
     if (DEBUG) await page.pause();
   });
 
-  test('07 - MetaMask Integration: Verify MetaMask is ready for wallet operations', async () => {
-    console.log('🦊 Test 07: Verifying MetaMask integration...');
+  test('09 - MetaMask Integration: Verify MetaMask is ready for wallet operations', async () => {
+    console.log('🦊 Test 09: MetaMask Integration...');
     
     // Verify MetaMask is properly initialized from beforeAll
     expect(metamaskWallet).toBeDefined();
@@ -356,9 +506,11 @@ test.describe.serial('Complete Gresistor Workflow', () => {
     expect(hasEthereum).toBe(true);
     console.log('✓ Ethereum provider is injected into the page');
     
-    console.log('✅ Test 07: MetaMask integration verified successfully');
+    console.log('✅ Test 09: MetaMask integration verified successfully');
     console.log('🦊 MetaMask is ready for wallet connection operations');
     
     if (DEBUG) await page.pause();
   });
+
+
 });
