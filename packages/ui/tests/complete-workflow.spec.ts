@@ -15,9 +15,8 @@ test.describe.serial('Complete Gresistor Workflow', () => {
   let metamaskContext;
 
   test.beforeAll(async ({ browser }) => {
-    const context = await browser.newContext();
-    page = await context.newPage();
-    await page.goto('http://localhost:3000');
+    // Page will be created in MetaMask context during setup
+    // No need to create initial page here
   });
 
   test.afterAll(async () => {
@@ -41,12 +40,23 @@ test.describe.serial('Complete Gresistor Workflow', () => {
         password: METAMASK_PASSWORD,
         headless: false,
       });
+      console.log('✓ MetaMask extension loaded and configured');
       
       metamaskWallet = await getWallet("metamask", context);
       metamaskContext = context;
       
-      console.log('✓ MetaMask extension loaded and configured');
       console.log('✓ Wallet initialized with test mnemonic');
+      
+      // Add Gnosis Chain network
+      console.log('Adding Gnosis Chain network...');
+      await metamaskWallet.addNetwork({
+        networkName: 'Gnosis Chain',
+        rpc: 'https://rpc.gnosischain.com',
+        chainId: 100,
+        symbol: 'XDAI'
+      });
+      
+      console.log('✓ Gnosis Chain network added successfully');
       console.log('✓ MetaMask is ready for injection into the page');
       
       // Create the main page directly in the MetaMask context
