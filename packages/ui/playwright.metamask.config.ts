@@ -30,11 +30,6 @@ export default defineConfig({
     
     /* Always run headed for MetaMask tests to see the wallet interaction */
     headless: false,
-    
-    /* Slow down for better visibility of MetaMask interactions */
-    launchOptions: {
-      slowMo: 1000,
-    },
   },
 
   /* Extended timeout for MetaMask operations */
@@ -61,7 +56,7 @@ export default defineConfig({
     command: 'pnpm dev',
     url: 'http://localhost:3000',
     reuseExistingServer: !process.env.CI,
-    timeout: 10000,
+    timeout: 1000,
     env: {
       REACT_APP_WALLETCONNECT_PROJECT_ID: 'test-project-id-for-playwright',
       VITE_WALLETCONNECT_PROJECT_ID: 'test-project-id-for-playwright',
