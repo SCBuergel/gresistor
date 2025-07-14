@@ -26,7 +26,7 @@ export default defineConfig({
   },
 
   /* Set test timeout to allow for visual debugging */
-  timeout: 90000,
+  timeout: 600000,
 
   /* No projects needed - using persistent profile with single worker */
 

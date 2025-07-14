@@ -718,14 +718,14 @@ export default function RestoreComponent({ shamirConfig, keyShardStorageBackend,
                 <div style={{ marginTop: '10px' }}>
                   {!service.isAuthenticated ? (
                     <button 
-                      data-testid={`${service.authType}-authenticate-button`}
+                      data-testid={`${service.serviceName.toLowerCase().replace(/\s+/g, '-')}-authenticate-button`}
                       onClick={() => authenticateService(service.serviceName)}
                     >
                       Authenticate
                     </button>
                   ) : (
                     <button 
-                      data-testid={`${service.authType}-clear-auth-button`}
+                      data-testid={`${service.serviceName.toLowerCase().replace(/\s+/g, '-')}-clear-auth-button`}
                       onClick={() => clearServiceAuthentication(service.serviceName)}
                     >
                       Clear Authentication
