@@ -23,9 +23,6 @@ export default defineConfig({
     
     /* Conditional headless mode - headless when not debugging */
     headless: !process.env.DEBUG && !process.env.PWDEBUG,
-    launchOptions: {
-      slowMo: process.env.DEBUG || process.env.PWDEBUG ? 500 : 0,
-    },
   },
 
   /* Set test timeout to allow for visual debugging */
