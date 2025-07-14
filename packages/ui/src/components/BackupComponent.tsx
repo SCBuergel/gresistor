@@ -398,6 +398,7 @@ export default function BackupComponent({ shamirConfig, keyShardStorageBackend, 
                       <label>
                         Safe Address:
                         <input
+                          data-testid="safe-auth-owner-address"
                           type="text"
                           value={safeData.safeAddress}
                           onChange={(e) => setSafeData({...safeData, safeAddress: e.target.value})}

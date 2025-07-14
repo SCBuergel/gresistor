@@ -30,7 +30,7 @@ test.describe('MetaMask Connection to Safe Global', () => {
     }
   });
 
-  test('Initialize MetaMask and connect to Safe Global', async ({ browser }) => {
+  test('00 - Initialize MetaMask and connect to Safe Global', async ({ browser }) => {
     if (APP_ONLY) {
       console.log('⚠️ Skipping MetaMask initialization (APP_ONLY mode)');
       test.skip();
@@ -79,7 +79,7 @@ test.describe('MetaMask Connection to Safe Global', () => {
     }
   });
 
-  test('Connect to Safe Global URL', async () => {
+  test('01 - Connect to Safe Global URL', async () => {
     if (APP_ONLY) {
       console.log('⚠️ Skipping Safe Global connection (APP_ONLY mode)');
       test.skip();
@@ -219,7 +219,7 @@ test.describe('MetaMask Connection to Safe Global', () => {
     console.log('✅ Safe Global connection test completed - tab remains open');
   });
 
-  test('Verify localhost:3000 loads correctly', async ({ browser }) => {
+  test('02 - Verify localhost:3000 loads correctly', async ({ browser }) => {
     console.log('🏠 Verifying local app loads correctly...');
     
     // Create context if not already created (for APP_ONLY mode)
@@ -255,7 +255,7 @@ test.describe('MetaMask Connection to Safe Global', () => {
     console.log('✅ All three services created and verified successfully');
   });
 
-  test('Configure Shamir settings and create three services', async () => {
+  test('03 - Configure Shamir settings and create three services', async () => {
     console.log('🔧 Configuring Shamir settings and creating services...');
     
     // Reuse the existing localhost:3000 tab from the previous test
@@ -460,7 +460,7 @@ test.describe('MetaMask Connection to Safe Global', () => {
     }
   });
 
-  test('Create backup using all three configured services', async () => {
+  test('04 - Create backup using all three configured services', async () => {
     console.log('💾 Creating backup with three services...');
     
     // Reuse the existing localhost:3000 tab
@@ -500,15 +500,15 @@ test.describe('MetaMask Connection to Safe Global', () => {
       throw new Error('No Auth Service section not found');
     }
     
-    // Find owner input for No Auth Service
-    const noAuthOwnerInput = noAuthServiceSection.locator('input[placeholder*="owner"], input[placeholder*="address"]').first();
+    // Find and fill owner input for No Auth Service using correct data-testid
+    const noAuthOwnerInput = localAppTab.locator('[data-testid="no-auth-owner-address"]');
     if (!(await noAuthOwnerInput.isVisible({ timeout: 5000 }))) {
       throw new Error('No Auth Service owner input not found');
     }
     await noAuthOwnerInput.fill('1');
     
-    // Find and click Select button for No Auth Service
-    const noAuthSelectBtn = noAuthServiceSection.locator('button', { hasText: 'Select' });
+    // Find and click Select button for No Auth Service using correct data-testid
+    const noAuthSelectBtn = localAppTab.locator('[data-testid="service-select-no-auth-service"]');
     if (!(await noAuthSelectBtn.isVisible({ timeout: 5000 }))) {
       throw new Error('No Auth Service Select button not found');
     }
@@ -524,15 +524,15 @@ test.describe('MetaMask Connection to Safe Global', () => {
       throw new Error('Mock Auth Service section not found');
     }
     
-    // Find owner input for Mock Auth Service
-    const mockAuthOwnerInput = mockAuthServiceSection.locator('input[placeholder*="owner"], input[placeholder*="address"]').first();
+    // Find and fill owner input for Mock Auth Service using correct data-testid
+    const mockAuthOwnerInput = localAppTab.locator('[data-testid="mock-auth-owner-address"]');
     if (!(await mockAuthOwnerInput.isVisible({ timeout: 5000 }))) {
       throw new Error('Mock Auth Service owner input not found');
     }
     await mockAuthOwnerInput.fill('123');
     
-    // Find and click Select button for Mock Auth Service
-    const mockAuthSelectBtn = mockAuthServiceSection.locator('button', { hasText: 'Select' });
+    // Find and click Select button for Mock Auth Service using correct data-testid
+    const mockAuthSelectBtn = localAppTab.locator('[data-testid="service-select-mock-auth-service"]');
     if (!(await mockAuthSelectBtn.isVisible({ timeout: 5000 }))) {
       throw new Error('Mock Auth Service Select button not found');
     }
@@ -548,15 +548,15 @@ test.describe('MetaMask Connection to Safe Global', () => {
       throw new Error('Safe Auth Service section not found');
     }
     
-    // Find owner input for Safe Auth Service
-    const safeAuthOwnerInput = safeAuthServiceSection.locator('input[placeholder*="owner"], input[placeholder*="address"]').first();
+    // Find and fill Safe Address input for Safe Auth Service using correct data-testid
+    const safeAuthOwnerInput = localAppTab.locator('[data-testid="safe-auth-owner-address"]');
     if (!(await safeAuthOwnerInput.isVisible({ timeout: 5000 }))) {
       throw new Error('Safe Auth Service owner input not found');
     }
     await safeAuthOwnerInput.fill('0x4f4f1091Bf0F4b9F3c85031DDc4cf196653b18a0');
     
-    // Find and click Select button for Safe Auth Service
-    const safeAuthSelectBtn = safeAuthServiceSection.locator('button', { hasText: 'Select' });
+    // Find and click Select button for Safe Auth Service using correct data-testid
+    const safeAuthSelectBtn = localAppTab.locator('[data-testid="service-select-safe-auth-service"]');
     if (!(await safeAuthSelectBtn.isVisible({ timeout: 5000 }))) {
       throw new Error('Safe Auth Service Select button not found');
     }

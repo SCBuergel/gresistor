@@ -21,6 +21,8 @@
     "test:e2e": "pnpm --filter @gresistor/ui test",
     "test:e2e:debug": "DEBUG=true pnpm --filter @gresistor/ui test",
     "test:e2e:headed": "PWDEBUG=true pnpm --filter @gresistor/ui test",
+    "test:app-only": "APP_ONLY=true pnpm --filter @gresistor/ui test",
+    "test:app-only:debug": "APP_ONLY=true DEBUG=true pnpm --filter @gresistor/ui test",
     "lint": "pnpm -r lint"
   },
   "keywords": ["backup", "encryption", "shamir-secret-sharing", "blockchain"],
