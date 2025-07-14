@@ -578,32 +578,14 @@ test.describe('MetaMask Connection to Safe Global', () => {
     await createBackupBtn.click();
     console.log('✓ Create Backup button clicked');
     
-    // Verify backup was created - look for success message or backup list entry
+    // Verify backup was created - look for success message
     console.log('🔍 Verifying backup creation...');
     
     // Wait for backup creation to complete and look for confirmation
-    const backupConfirmationSelectors = [
-      'text=Backup created successfully',
-      'text=Backup completed',
-      '.backup-success',
-      '.backup-item',
-      'text=Backup #',
-      '[data-testid="backup-success"]'
-    ];
-    
-    let backupConfirmed = false;
-    for (const selector of backupConfirmationSelectors) {
-      try {
-        await localAppTab.waitForSelector(selector, { timeout: 10000 });
-        console.log(`✓ Backup confirmation found with selector: ${selector}`);
-        backupConfirmed = true;
-        break;
-      } catch (e) {
-        // Continue to next selector
-      }
-    }
-    
-    if (!backupConfirmed) {
+    try {
+      await localAppTab.waitForSelector('text=Backup completed successfully!', { timeout: 10000 });
+      console.log('✓ Backup confirmation found');
+    } catch (e) {
       // Take a screenshot for debugging if backup confirmation not found
       await localAppTab.screenshot({ path: 'backup-creation-debug.png' });
       throw new Error('Backup creation confirmation not found - check backup-creation-debug.png');
@@ -615,6 +597,230 @@ test.describe('MetaMask Connection to Safe Global', () => {
     }
     
     console.log('✅ Backup created successfully with all three services');
+  });
+
+  test('05 - Create two more mock signature services', async () => {
+    console.log('🔧 Creating two more mock signature services...');
+    
+    // Reuse the existing localhost:3000 tab
+    const pages = await appContext.pages();
+    let localAppTab: any = null;
+    
+    // Find the existing localhost:3000 tab
+    for (const page of pages) {
+      const url = page.url();
+      if (url.includes('localhost:3000')) {
+        localAppTab = page;
+        break;
+      }
+    }
+    
+    // Ensure localAppTab is not null
+    if (!localAppTab) {
+      throw new Error('Failed to find existing local app tab');
+    }
+    
+    console.log('✓ Using existing local app tab');
+    
+    // Navigate to config tab
+    const configTabBtn = localAppTab.locator('nav button', { hasText: 'Config' });
+    if (!(await configTabBtn.isVisible({ timeout: 5000 }))) {
+      throw new Error('Config tab button not found');
+    }
+    await configTabBtn.click();
+    console.log('✓ Navigated to Config tab');
+    
+    // Create Service 4: Mock Auth Service 2
+    console.log('🔑 Creating Mock Auth Service 2...');
+    
+    const createServiceBtn4 = localAppTab.locator('button', { hasText: 'Create New Service' });
+    if (!(await createServiceBtn4.isVisible({ timeout: 5000 }))) {
+      throw new Error('Create New Service button not found for fourth service');
+    }
+    await createServiceBtn4.click();
+    
+    const serviceNameInput4 = localAppTab.locator('#new-service-name');
+    if (!(await serviceNameInput4.isVisible({ timeout: 5000 }))) {
+      throw new Error('Service name input not found for fourth service');
+    }
+    await serviceNameInput4.fill('Mock Auth Service 2');
+    
+    const authTypeSelect4 = localAppTab.locator('#new-service-auth-type');
+    if (!(await authTypeSelect4.isVisible({ timeout: 5000 }))) {
+      throw new Error('Auth type select not found for fourth service');
+    }
+    await authTypeSelect4.selectOption('mock-signature-2x');
+    
+    const descriptionInput4 = localAppTab.locator('#new-service-description');
+    if (!(await descriptionInput4.isVisible({ timeout: 5000 }))) {
+      throw new Error('Description input not found for fourth service');
+    }
+    await descriptionInput4.fill('Second mock signature service');
+    
+    const createBtn4 = localAppTab.locator('button', { hasText: 'Create Service' });
+    if (!(await createBtn4.isVisible({ timeout: 5000 }))) {
+      throw new Error('Create Service button not found for fourth service');
+    }
+    await createBtn4.click();
+    
+    await expect(localAppTab.locator('td', { hasText: 'Mock Auth Service 2' })).toBeVisible();
+    console.log('✓ Mock Auth Service 2 created and visible');
+    
+    // Create Service 5: Mock Auth Service 3
+    console.log('🔑 Creating Mock Auth Service 3...');
+    
+    const createServiceBtn5 = localAppTab.locator('button', { hasText: 'Create New Service' });
+    if (!(await createServiceBtn5.isVisible({ timeout: 5000 }))) {
+      throw new Error('Create New Service button not found for fifth service');
+    }
+    await createServiceBtn5.click();
+    
+    const serviceNameInput5 = localAppTab.locator('#new-service-name');
+    if (!(await serviceNameInput5.isVisible({ timeout: 5000 }))) {
+      throw new Error('Service name input not found for fifth service');
+    }
+    await serviceNameInput5.fill('Mock Auth Service 3');
+    
+    const authTypeSelect5 = localAppTab.locator('#new-service-auth-type');
+    if (!(await authTypeSelect5.isVisible({ timeout: 5000 }))) {
+      throw new Error('Auth type select not found for fifth service');
+    }
+    await authTypeSelect5.selectOption('mock-signature-2x');
+    
+    const descriptionInput5 = localAppTab.locator('#new-service-description');
+    if (!(await descriptionInput5.isVisible({ timeout: 5000 }))) {
+      throw new Error('Description input not found for fifth service');
+    }
+    await descriptionInput5.fill('Third mock signature service');
+    
+    const createBtn5 = localAppTab.locator('button', { hasText: 'Create Service' });
+    if (!(await createBtn5.isVisible({ timeout: 5000 }))) {
+      throw new Error('Create Service button not found for fifth service');
+    }
+    await createBtn5.click();
+    
+    await expect(localAppTab.locator('td', { hasText: 'Mock Auth Service 3' })).toBeVisible();
+    console.log('✓ Mock Auth Service 3 created and visible');
+    
+    // Verify all services are now visible (using exact text to avoid strict mode violations)
+    await expect(localAppTab.locator('td:has-text("Mock Auth Service"):not(:has-text("2")):not(:has-text("3"))')).toBeVisible();
+    await expect(localAppTab.locator('td', { hasText: 'Mock Auth Service 2' })).toBeVisible();
+    await expect(localAppTab.locator('td', { hasText: 'Mock Auth Service 3' })).toBeVisible();
+    
+    if (DEBUG) {
+      console.log('🔍 Debug mode: Pausing for inspection');
+      await localAppTab.pause();
+    }
+    
+    console.log('✅ Two additional mock signature services created successfully');
+  });
+
+  test('06 - Create backup using three mock signature services', async () => {
+    console.log('💾 Creating backup with three mock signature services...');
+    
+    // Reuse the existing localhost:3000 tab to preserve state
+    const pages = await appContext.pages();
+    let localAppTab: any = null;
+    
+    // Find the existing localhost:3000 tab
+    for (const page of pages) {
+      const url = page.url();
+      if (url.includes('localhost:3000')) {
+        localAppTab = page;
+        break;
+      }
+    }
+    
+    // Ensure localAppTab is not null
+    if (!localAppTab) {
+      throw new Error('Failed to find existing local app tab');
+    }
+    
+    console.log('✓ Using existing local app tab');
+    
+    // Navigate to backup tab
+    const backupTabBtn = localAppTab.locator('nav button', { hasText: 'Backup' });
+    if (!(await backupTabBtn.isVisible({ timeout: 5000 }))) {
+      throw new Error('Backup tab button not found');
+    }
+    await backupTabBtn.click();
+    console.log('✓ Navigated to Backup tab');
+    
+    // Fill mock auth owner address field (shared by all mock services)
+    console.log('🔑 Setting mock auth owner address...');
+    const mockAuthOwnerInput = localAppTab.locator('[data-testid="mock-auth-owner-address"]');
+    if (!(await mockAuthOwnerInput.isVisible({ timeout: 5000 }))) {
+      throw new Error('Mock auth owner address input not found');
+    }
+    await mockAuthOwnerInput.fill('2'); // First service gets owner "2"
+    
+    // Select Mock Auth Service (owner 2)
+    console.log('🔑 Selecting Mock Auth Service with owner "2"...');
+    const mockAuthSelectBtn = localAppTab.locator('[data-testid="service-select-mock-auth-service"]');
+    if (!(await mockAuthSelectBtn.isVisible({ timeout: 5000 }))) {
+      throw new Error('Mock Auth Service Select button not found');
+    }
+    await mockAuthSelectBtn.click();
+    console.log('✓ Mock Auth Service selected with owner "2"');
+    
+    // Update owner address for second service and select it
+    await mockAuthOwnerInput.fill('3'); // Second service gets owner "3"
+    
+    // Select Mock Auth Service 2 (owner 3)
+    console.log('🔑 Selecting Mock Auth Service 2 with owner "3"...');
+    const mockAuth2SelectBtn = localAppTab.locator('[data-testid="service-select-mock-auth-service-2"]');
+    if (!(await mockAuth2SelectBtn.isVisible({ timeout: 5000 }))) {
+      throw new Error('Mock Auth Service 2 Select button not found');
+    }
+    await mockAuth2SelectBtn.click();
+    console.log('✓ Mock Auth Service 2 selected with owner "3"');
+    
+    // Update owner address for third service and select it
+    await mockAuthOwnerInput.fill('123'); // Third service gets owner "123"
+    
+    // Select Mock Auth Service 3 (owner 123)
+    console.log('🔑 Selecting Mock Auth Service 3 with owner "123"...');
+    const mockAuth3SelectBtn = localAppTab.locator('[data-testid="service-select-mock-auth-service-3"]');
+    if (!(await mockAuth3SelectBtn.isVisible({ timeout: 5000 }))) {
+      throw new Error('Mock Auth Service 3 Select button not found');
+    }
+    await mockAuth3SelectBtn.click();
+    console.log('✓ Mock Auth Service 3 selected with owner "123"');
+    
+    // Find and click Create Backup button
+    console.log('💾 Creating backup...');
+    const createBackupBtn = localAppTab.locator('button', { hasText: 'Create Backup' });
+    if (!(await createBackupBtn.isVisible({ timeout: 5000 }))) {
+      throw new Error('Create Backup button not found');
+    }
+    
+    // Check if Create Backup button is enabled
+    if (!(await createBackupBtn.isEnabled({ timeout: 5000 }))) {
+      throw new Error('Create Backup button is not enabled - all services may not be selected properly');
+    }
+    
+    await createBackupBtn.click();
+    console.log('✓ Create Backup button clicked');
+    
+    // Verify backup was created - look for success message
+    console.log('🔍 Verifying backup creation...');
+    
+    // Wait for backup creation to complete and look for confirmation
+    try {
+      await localAppTab.waitForSelector('text=Backup completed successfully!', { timeout: 10000 });
+      console.log('✓ Backup confirmation found');
+    } catch (e) {
+      // Take a screenshot for debugging if backup confirmation not found
+      await localAppTab.screenshot({ path: 'backup-creation-debug.png' });
+      throw new Error('Backup creation confirmation not found - check backup-creation-debug.png');
+    }
+    
+    if (DEBUG) {
+      console.log('🔍 Debug mode: Pausing for backup inspection');
+      await localAppTab.pause();
+    }
+    
+    console.log('✅ Backup created successfully with three mock signature services (owners 2, 3, 123)');
   });
 
 });
