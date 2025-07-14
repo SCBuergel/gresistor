@@ -194,25 +194,14 @@ test.describe('MetaMask Connection to Safe Global', () => {
     
     if (DEBUG) await safeTab.pause();
     
-    // Close the Safe Global tab
-    await safeTab.close();
-    
-    console.log('✅ Safe Global connection test completed');
+    // Keep the Safe Global tab open for the next test
+    console.log('✅ Safe Global connection test completed - tab remains open');
   });
 
-  test('Open local app at localhost:3000', async () => {
-    console.log('🏠 Opening local app at localhost:3000...');
+  test('Verify local app loads correctly', async () => {
+    console.log('🏠 Testing local app at localhost:3000...');
     
-    // First, open Safe Global tab again (without closing it this time)
-    const safeGlobalUrl = 'https://app.safe.global/home?safe=gno:0x4f4f1091Bf0F4b9F3c85031DDc4cf196653b18a0';
-    const safeTab = await metamaskContext.newPage();
-    
-    console.log('📂 Opening Safe Global tab...');
-    await safeTab.goto(safeGlobalUrl);
-    await safeTab.waitForLoadState('networkidle');
-    console.log('✓ Safe Global page loaded');
-    
-    // Now open the local app in a new tab
+    // Open the local app in a new tab
     const localAppTab = await metamaskContext.newPage();
     
     console.log('🏠 Opening local app tab...');
@@ -220,28 +209,27 @@ test.describe('MetaMask Connection to Safe Global', () => {
     await localAppTab.waitForLoadState('networkidle');
     console.log('✓ Local app page loaded');
     
-    // Verify the local app loaded correctly
-    try {
-      await localAppTab.waitForSelector('body', { timeout: 5000 });
-      console.log('✓ Local app body element found');
-      
-      // Check if the app has a title or specific content
-      const title = await localAppTab.title();
-      console.log(`✓ Local app title: ${title}`);
-      
-    } catch (error) {
-      console.log('⚠️ Could not verify local app content:', error.message);
-    }
+    // Verify the local app loaded correctly by checking the title
+    const title = await localAppTab.title();
+    console.log(`✓ Local app title: ${title}`);
+    
+    // Verify it's the expected Gresistor app
+    expect(title).toContain('gresistor');
+    console.log('✓ Local app title verification passed');
+    
+    // Verify basic page structure
+    await localAppTab.waitForSelector('body', { timeout: 5000 });
+    console.log('✓ Local app body element found');
     
     if (DEBUG) {
-      console.log('🔍 Debug mode: Both tabs are open for inspection');
+      console.log('🔍 Debug mode: Local app tab open for inspection');
       await localAppTab.pause();
     }
     
-    // Keep both tabs open for now - don't close them
-    console.log('✅ Both Safe Global and local app tabs are open and ready');
-    console.log('🔗 Safe Global URL:', safeGlobalUrl);
+    console.log('✅ Local app verification completed');
     console.log('🏠 Local app URL: http://localhost:3000');
   });
+
+
 
 });
