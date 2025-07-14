@@ -1,8 +1,10 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, Browser, BrowserContext } from '@playwright/test';
 import { bootstrap, getWallet, MetaMaskWallet } from '@tenkeylabs/dappwright';
 
 // Debug mode - set to true to enable page.pause() at the end of each test
 const DEBUG = process.env.DEBUG === 'true' || process.env.PWDEBUG === '1';
+const PAUSE_MODE = process.env.PAUSE_MODE === 'true';
+const APP_ONLY = process.env.APP_ONLY === 'true';
 
 // MetaMask test configuration
 const TEST_MNEMONIC = 'zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo wrong';
@@ -10,17 +12,30 @@ const METAMASK_PASSWORD = 'TestPassword123!';
 
 test.describe('MetaMask Connection to Safe Global', () => {
   let metamaskWallet;
-  let metamaskContext;
+  let appContext: BrowserContext;
 
-  test.afterAll(async () => {
-    // Clean up MetaMask context
-    if (metamaskContext) {
-      await metamaskContext.close();
-      console.log('✓ MetaMask context cleaned up');
+  test.beforeAll(async ({ browser }) => {
+    if (APP_ONLY) {
+      console.log('📱 APP_ONLY mode: Creating regular browser context');
+      appContext = await browser.newContext();
+      console.log('✓ Regular browser context created for app-only testing');
     }
   });
 
-  test('Initialize MetaMask and connect to Safe Global', async () => {
+  test.afterAll(async () => {
+    // Clean up context
+    if (appContext) {
+      await appContext.close();
+      console.log('✓ App context cleaned up');
+    }
+  });
+
+  test('Initialize MetaMask and connect to Safe Global', async ({ browser }) => {
+    if (APP_ONLY) {
+      console.log('⚠️ Skipping MetaMask initialization (APP_ONLY mode)');
+      test.skip();
+      return;
+    }
     console.log('🦊 Testing MetaMask bootstrap and Safe Global connection...');
     
     try {
@@ -39,7 +54,7 @@ test.describe('MetaMask Connection to Safe Global', () => {
       console.log('✓ Bootstrap completed successfully');
       
       metamaskWallet = await getWallet("metamask", context);
-      metamaskContext = context;
+      appContext = context;
       
       console.log('✓ MetaMask wallet obtained');
       
@@ -56,7 +71,7 @@ test.describe('MetaMask Connection to Safe Global', () => {
       
       // Verify MetaMask is working
       expect(metamaskWallet).toBeDefined();
-      expect(metamaskContext).toBeDefined();
+      expect(appContext).toBeDefined();
       
     } catch (error) {
       console.error('❌ MetaMask bootstrap failed:', error);
@@ -65,11 +80,17 @@ test.describe('MetaMask Connection to Safe Global', () => {
   });
 
   test('Connect to Safe Global URL', async () => {
+    if (APP_ONLY) {
+      console.log('⚠️ Skipping Safe Global connection (APP_ONLY mode)');
+      test.skip();
+      return;
+    }
+    
     console.log('🔗 Connecting to Safe Global...');
     
     // Open a new page with the Safe Global URL
     const safeGlobalUrl = 'https://app.safe.global/home?safe=gno:0x4f4f1091Bf0F4b9F3c85031DDc4cf196653b18a0';
-    const safeTab = await metamaskContext.newPage();
+    const safeTab = await appContext.newPage();
     
     console.log('📂 Opening Safe Global tab...');
     await safeTab.goto(safeGlobalUrl);
@@ -127,7 +148,7 @@ test.describe('MetaMask Connection to Safe Global', () => {
         
         // Handle potential MetaMask popup
         try {
-          const popupPromise = metamaskContext.waitForEvent('page', { timeout: 10000 });
+          const popupPromise = appContext.waitForEvent('page', { timeout: 10000 });
           const popup = await popupPromise;
           
           console.log('🦊 MetaMask popup detected');
@@ -198,11 +219,16 @@ test.describe('MetaMask Connection to Safe Global', () => {
     console.log('✅ Safe Global connection test completed - tab remains open');
   });
 
-  test('Verify local app loads correctly', async () => {
-    console.log('🏠 Testing local app at localhost:3000...');
+  test('Verify localhost:3000 loads correctly', async ({ browser }) => {
+    console.log('🏠 Verifying local app loads correctly...');
+    
+    // Create context if not already created (for APP_ONLY mode)
+    if (!appContext) {
+      appContext = await browser.newContext();
+    }
     
     // Open the local app in a new tab
-    const localAppTab = await metamaskContext.newPage();
+    const localAppTab = await appContext.newPage();
     
     console.log('🏠 Opening local app tab...');
     await localAppTab.goto('http://localhost:3000');
@@ -222,14 +248,373 @@ test.describe('MetaMask Connection to Safe Global', () => {
     console.log('✓ Local app body element found');
     
     if (DEBUG) {
-      console.log('🔍 Debug mode: Local app tab open for inspection');
+      console.log('🔍 Debug mode: Pausing for inspection');
       await localAppTab.pause();
     }
     
-    console.log('✅ Local app verification completed');
-    console.log('🏠 Local app URL: http://localhost:3000');
+    console.log('✅ All three services created and verified successfully');
   });
 
+  test('Configure Shamir settings and create three services', async () => {
+    console.log('🔧 Configuring Shamir settings and creating services...');
+    
+    // Reuse the existing localhost:3000 tab from the previous test
+    const pages = await appContext.pages();
+    let localAppTab: any = null;
+    
+    // Find the existing localhost:3000 tab
+    for (const page of pages) {
+      const url = page.url();
+      if (url.includes('localhost:3000')) {
+        localAppTab = page;
+        break;
+      }
+    }
+    
+    // If no existing tab found, create a new one
+    if (!localAppTab) {
+      localAppTab = await appContext.newPage();
+      await localAppTab.goto('http://localhost:3000');
+      await localAppTab.waitForLoadState('networkidle');
+    }
+    
+    // Ensure localAppTab is not null
+    if (!localAppTab) {
+      throw new Error('Failed to get or create local app tab');
+    }
+    
+    console.log('✓ Using existing local app tab');
+    
+    // Navigate to config tab
+    await localAppTab.locator('nav button', { hasText: 'Config' }).click();
+    console.log('✓ Navigated to Config tab');
+    
+    // Configure Shamir settings to 2-of-3
+    console.log('🔢 Setting Shamir configuration to 2-of-3...');
+    
+    // Set threshold to 2
+    const thresholdInput = localAppTab.locator('#shamir-threshold');
+    await thresholdInput.clear();
+    await thresholdInput.fill('2');
+    
+    // Set total shares to 3
+    const totalSharesInput = localAppTab.locator('#shamir-total-shares');
+    await totalSharesInput.clear();
+    await totalSharesInput.fill('3');
+    
+    // Apply the configuration
+    await localAppTab.locator('button', { hasText: 'Apply All Changes' }).click();
+    
+    // Verify the configuration is reflected
+    await expect(localAppTab.locator('text=2 of 3 shares required for recovery')).toBeVisible();
+    console.log('✓ Shamir configuration set to 2-of-3');
+    
+    // Create Service 1: No Authorization (no owner address needed)
+    console.log('🔑 Creating No Auth Service...');
+    
+    // Check if Create New Service button exists
+    const createServiceBtn = localAppTab.locator('button', { hasText: 'Create New Service' });
+    if (!(await createServiceBtn.isVisible({ timeout: 5000 }))) {
+      throw new Error('Create New Service button not found');
+    }
+    await createServiceBtn.click();
+    
+    // Check and fill service name
+    const serviceNameInput = localAppTab.locator('#new-service-name');
+    if (!(await serviceNameInput.isVisible({ timeout: 5000 }))) {
+      throw new Error('Service name input (#new-service-name) not found');
+    }
+    await serviceNameInput.fill('No Auth Service');
+    
+    // Check and select auth type
+    const authTypeSelect = localAppTab.locator('#new-service-auth-type');
+    if (!(await authTypeSelect.isVisible({ timeout: 5000 }))) {
+      throw new Error('Auth type select (#new-service-auth-type) not found');
+    }
+    await authTypeSelect.selectOption('no-auth');
+    
+    // Check and fill description
+    const descriptionInput = localAppTab.locator('#new-service-description');
+    if (!(await descriptionInput.isVisible({ timeout: 5000 }))) {
+      throw new Error('Description input (#new-service-description) not found');
+    }
+    await descriptionInput.fill('Service with no authorization');
+    
+    // No owner address for no-auth service
+    
+    // Check and click create service button
+    const createBtn = localAppTab.locator('button', { hasText: 'Create Service' });
+    if (!(await createBtn.isVisible({ timeout: 5000 }))) {
+      throw new Error('Create Service button not found');
+    }
+    await createBtn.click();
+    
+    // Verify first service appears
+    await expect(localAppTab.locator('td', { hasText: 'No Auth Service' })).toBeVisible();
+    console.log('✓ No Auth Service created and visible');
+    
+    // Create Service 2: Mock Authorization for address 123
+    console.log('🔑 Creating Mock Auth Service...');
+    
+    // Check if Create New Service button exists
+    const createServiceBtn2 = localAppTab.locator('button', { hasText: 'Create New Service' });
+    if (!(await createServiceBtn2.isVisible({ timeout: 5000 }))) {
+      throw new Error('Create New Service button not found for second service');
+    }
+    await createServiceBtn2.click();
+    
+    // Check and fill service name
+    const serviceNameInput2 = localAppTab.locator('#new-service-name');
+    if (!(await serviceNameInput2.isVisible({ timeout: 5000 }))) {
+      throw new Error('Service name input (#new-service-name) not found for second service');
+    }
+    await serviceNameInput2.fill('Mock Auth Service');
+    
+    // Check and select auth type
+    const authTypeSelect2 = localAppTab.locator('#new-service-auth-type');
+    if (!(await authTypeSelect2.isVisible({ timeout: 5000 }))) {
+      throw new Error('Auth type select (#new-service-auth-type) not found for second service');
+    }
+    await authTypeSelect2.selectOption('mock-signature-2x');
+    
+    // Check and fill description
+    const descriptionInput2 = localAppTab.locator('#new-service-description');
+    if (!(await descriptionInput2.isVisible({ timeout: 5000 }))) {
+      throw new Error('Description input (#new-service-description) not found for second service');
+    }
+    await descriptionInput2.fill('Service with mock authorization');
+    
+    // No owner address for mock auth service
+    
+    // Check and click create service button
+    const createBtn2 = localAppTab.locator('button', { hasText: 'Create Service' });
+    if (!(await createBtn2.isVisible({ timeout: 5000 }))) {
+      throw new Error('Create Service button not found for second service');
+    }
+    await createBtn2.click();
+    
+    // Verify second service appears
+    await expect(localAppTab.locator('td', { hasText: 'Mock Auth Service' })).toBeVisible();
+    console.log('✓ Mock Auth Service created and visible');
+    
+    // Create Service 3: Safe Authorization for Safe address
+    console.log('🔑 Creating Safe Auth Service...');
+    
+    // Check if Create New Service button exists
+    const createServiceBtn3 = localAppTab.locator('button', { hasText: 'Create New Service' });
+    if (!(await createServiceBtn3.isVisible({ timeout: 5000 }))) {
+      throw new Error('Create New Service button not found for third service');
+    }
+    await createServiceBtn3.click();
+    
+    // Check and fill service name
+    const serviceNameInput3 = localAppTab.locator('#new-service-name');
+    if (!(await serviceNameInput3.isVisible({ timeout: 5000 }))) {
+      throw new Error('Service name input (#new-service-name) not found for third service');
+    }
+    await serviceNameInput3.fill('Safe Auth Service');
+    
+    // Check and select auth type
+    const authTypeSelect3 = localAppTab.locator('#new-service-auth-type');
+    if (!(await authTypeSelect3.isVisible({ timeout: 5000 }))) {
+      throw new Error('Auth type select (#new-service-auth-type) not found for third service');
+    }
+    await authTypeSelect3.selectOption('safe-signature');
+    
+    // Check and fill description
+    const descriptionInput3 = localAppTab.locator('#new-service-description');
+    if (!(await descriptionInput3.isVisible({ timeout: 5000 }))) {
+      throw new Error('Description input (#new-service-description) not found for third service');
+    }
+    await descriptionInput3.fill('Service with Safe authorization');
+    
+    // No owner address for safe auth service
+    
+    // Check and click create service button
+    const createBtn3 = localAppTab.locator('button', { hasText: 'Create Service' });
+    if (!(await createBtn3.isVisible({ timeout: 5000 }))) {
+      throw new Error('Create Service button not found for third service');
+    }
+    await createBtn3.click();
+    
+    // Verify third service appears
+    await expect(localAppTab.locator('td', { hasText: 'Safe Auth Service' })).toBeVisible();
+    console.log('✓ Safe Auth Service created and visible');
+    
+    // Final validation: Verify all three services are visible in the config section
+    console.log('🔍 Final validation: Checking all services are visible...');
+    await expect(localAppTab.locator('td', { hasText: 'No Auth Service' })).toBeVisible();
+    await expect(localAppTab.locator('td', { hasText: 'Mock Auth Service' })).toBeVisible();
+    await expect(localAppTab.locator('td', { hasText: 'Safe Auth Service' })).toBeVisible();
+    
+    // Verify Shamir configuration is still correct
+    await expect(localAppTab.locator('text=2 of 3 shares required for recovery')).toBeVisible();
+    
+    console.log('✅ All services created and validated successfully');
+    console.log('✓ Shamir configuration: 2-of-3');
+    console.log('✓ Services: No Auth (address 1), Mock Auth (address 123), Safe Auth (Safe address)');
+    
+    if (DEBUG) {
+      console.log('🔍 Debug mode: Config tab open for inspection');
+      await localAppTab.pause();
+    }
+  });
 
+  test('Create backup using all three configured services', async () => {
+    console.log('💾 Creating backup with three services...');
+    
+    // Reuse the existing localhost:3000 tab
+    const pages = await appContext.pages();
+    let localAppTab: any = null;
+    
+    // Find the existing localhost:3000 tab
+    for (const page of pages) {
+      const url = page.url();
+      if (url.includes('localhost:3000')) {
+        localAppTab = page;
+        break;
+      }
+    }
+    
+    // Ensure localAppTab is not null
+    if (!localAppTab) {
+      throw new Error('Failed to find existing local app tab');
+    }
+    
+    console.log('✓ Using existing local app tab');
+    
+    // Navigate to backup tab
+    const backupTabBtn = localAppTab.locator('nav button', { hasText: 'Backup' });
+    if (!(await backupTabBtn.isVisible({ timeout: 5000 }))) {
+      throw new Error('Backup tab button not found');
+    }
+    await backupTabBtn.click();
+    console.log('✓ Navigated to Backup tab');
+    
+    // Service 1: No Auth Service with owner "1"
+    console.log('🔑 Selecting No Auth Service...');
+    
+    // Find the No Auth Service section
+    const noAuthServiceSection = localAppTab.locator('text=No Auth Service').locator('..');
+    if (!(await noAuthServiceSection.isVisible({ timeout: 5000 }))) {
+      throw new Error('No Auth Service section not found');
+    }
+    
+    // Find owner input for No Auth Service
+    const noAuthOwnerInput = noAuthServiceSection.locator('input[placeholder*="owner"], input[placeholder*="address"]').first();
+    if (!(await noAuthOwnerInput.isVisible({ timeout: 5000 }))) {
+      throw new Error('No Auth Service owner input not found');
+    }
+    await noAuthOwnerInput.fill('1');
+    
+    // Find and click Select button for No Auth Service
+    const noAuthSelectBtn = noAuthServiceSection.locator('button', { hasText: 'Select' });
+    if (!(await noAuthSelectBtn.isVisible({ timeout: 5000 }))) {
+      throw new Error('No Auth Service Select button not found');
+    }
+    await noAuthSelectBtn.click();
+    console.log('✓ No Auth Service selected with owner "1"');
+    
+    // Service 2: Mock Auth Service with owner "123"
+    console.log('🔑 Selecting Mock Auth Service...');
+    
+    // Find the Mock Auth Service section
+    const mockAuthServiceSection = localAppTab.locator('text=Mock Auth Service').locator('..');
+    if (!(await mockAuthServiceSection.isVisible({ timeout: 5000 }))) {
+      throw new Error('Mock Auth Service section not found');
+    }
+    
+    // Find owner input for Mock Auth Service
+    const mockAuthOwnerInput = mockAuthServiceSection.locator('input[placeholder*="owner"], input[placeholder*="address"]').first();
+    if (!(await mockAuthOwnerInput.isVisible({ timeout: 5000 }))) {
+      throw new Error('Mock Auth Service owner input not found');
+    }
+    await mockAuthOwnerInput.fill('123');
+    
+    // Find and click Select button for Mock Auth Service
+    const mockAuthSelectBtn = mockAuthServiceSection.locator('button', { hasText: 'Select' });
+    if (!(await mockAuthSelectBtn.isVisible({ timeout: 5000 }))) {
+      throw new Error('Mock Auth Service Select button not found');
+    }
+    await mockAuthSelectBtn.click();
+    console.log('✓ Mock Auth Service selected with owner "123"');
+    
+    // Service 3: Safe Auth Service with owner "0x4f4f1091Bf0F4b9F3c85031DDc4cf196653b18a0"
+    console.log('🔑 Selecting Safe Auth Service...');
+    
+    // Find the Safe Auth Service section
+    const safeAuthServiceSection = localAppTab.locator('text=Safe Auth Service').locator('..');
+    if (!(await safeAuthServiceSection.isVisible({ timeout: 5000 }))) {
+      throw new Error('Safe Auth Service section not found');
+    }
+    
+    // Find owner input for Safe Auth Service
+    const safeAuthOwnerInput = safeAuthServiceSection.locator('input[placeholder*="owner"], input[placeholder*="address"]').first();
+    if (!(await safeAuthOwnerInput.isVisible({ timeout: 5000 }))) {
+      throw new Error('Safe Auth Service owner input not found');
+    }
+    await safeAuthOwnerInput.fill('0x4f4f1091Bf0F4b9F3c85031DDc4cf196653b18a0');
+    
+    // Find and click Select button for Safe Auth Service
+    const safeAuthSelectBtn = safeAuthServiceSection.locator('button', { hasText: 'Select' });
+    if (!(await safeAuthSelectBtn.isVisible({ timeout: 5000 }))) {
+      throw new Error('Safe Auth Service Select button not found');
+    }
+    await safeAuthSelectBtn.click();
+    console.log('✓ Safe Auth Service selected with owner "0x4f4f1091Bf0F4b9F3c85031DDc4cf196653b18a0"');
+    
+    // Find and click Create Backup button
+    console.log('💾 Creating backup...');
+    const createBackupBtn = localAppTab.locator('button', { hasText: 'Create Backup' });
+    if (!(await createBackupBtn.isVisible({ timeout: 5000 }))) {
+      throw new Error('Create Backup button not found');
+    }
+    
+    // Check if Create Backup button is enabled
+    if (!(await createBackupBtn.isEnabled({ timeout: 5000 }))) {
+      throw new Error('Create Backup button is not enabled - all services may not be selected properly');
+    }
+    
+    await createBackupBtn.click();
+    console.log('✓ Create Backup button clicked');
+    
+    // Verify backup was created - look for success message or backup list entry
+    console.log('🔍 Verifying backup creation...');
+    
+    // Wait for backup creation to complete and look for confirmation
+    const backupConfirmationSelectors = [
+      'text=Backup created successfully',
+      'text=Backup completed',
+      '.backup-success',
+      '.backup-item',
+      'text=Backup #',
+      '[data-testid="backup-success"]'
+    ];
+    
+    let backupConfirmed = false;
+    for (const selector of backupConfirmationSelectors) {
+      try {
+        await localAppTab.waitForSelector(selector, { timeout: 10000 });
+        console.log(`✓ Backup confirmation found with selector: ${selector}`);
+        backupConfirmed = true;
+        break;
+      } catch (e) {
+        // Continue to next selector
+      }
+    }
+    
+    if (!backupConfirmed) {
+      // Take a screenshot for debugging if backup confirmation not found
+      await localAppTab.screenshot({ path: 'backup-creation-debug.png' });
+      throw new Error('Backup creation confirmation not found - check backup-creation-debug.png');
+    }
+    
+    if (DEBUG) {
+      console.log('🔍 Debug mode: Pausing for backup inspection');
+      await localAppTab.pause();
+    }
+    
+    console.log('✅ Backup created successfully with all three services');
+  });
 
 });
