@@ -1583,52 +1583,54 @@ test.describe('MetaMask Connection to Safe Global', () => {
     }
     
     // Step 4: Handle MetaMask signature popup
-    console.log('🦊 Looking for MetaMask signature popup...');
+    console.log('🦊 Handling MetaMask signature popup...');
     
     try {
       // Wait for MetaMask popup to appear
-      const popupPromise = appContext.waitForEvent('page', { timeout: 10000 });
-      const popup = await popupPromise;
+      console.log('🔍 Waiting for MetaMask signature popup to appear...');
+      await localAppTab.waitForTimeout(UI_INTERACTION_DELAY_LONG);
       
-      console.log('✅ MetaMask popup detected');
+      // Find existing MetaMask popup in current pages
+      console.log('🔍 Looking for MetaMask popup in current pages...');
+      const existingPages = appContext.pages();
+      let metamaskPopup: any = null;
       
-      // Look for confirm/sign button in MetaMask popup
-      const confirmSelectors = [
-        'button:has-text("Sign")',
-        'button:has-text("Confirm")',
-        '[data-testid="request-signature__sign"]',
-        '[data-testid="page-container-footer-next"]',
-        '.btn-primary',
-        'button[type="submit"]'
-      ];
-      
-      let buttonClicked = false;
-      for (const selector of confirmSelectors) {
+      for (const page of existingPages) {
         try {
-          const button = popup.locator(selector).first();
-          if (await button.isVisible({ timeout: 2000 })) {
-            await button.click();
-            console.log(`✅ MetaMask signature confirmed with selector: ${selector}`);
-            buttonClicked = true;
+          const url = page.url();
+          if (url.includes('chrome-extension://') && url.includes('notification.html')) {
+            console.log('✅ Found MetaMask popup:', url);
+            metamaskPopup = page;
             break;
           }
         } catch (e) {
-          // Continue to next selector
+          // Continue checking other pages
         }
       }
       
-      if (!buttonClicked) {
-        console.log('⚠️ No MetaMask confirm button found, trying manual confirmation');
-        await popup.pause();
+      if (metamaskPopup) {
+        console.log('🎯 Found MetaMask popup, attempting to confirm signature...');
+        
+        // Bring popup to front and click confirm button
+        await metamaskPopup.bringToFront();
+        await metamaskPopup.waitForTimeout(UI_INTERACTION_DELAY);
+        
+        // Click the confirm button
+        const confirmButton = metamaskPopup.locator('button:has-text("Confirm")').first();
+        await confirmButton.click();
+        console.log('✅ MetaMask signature confirmed');
+        
+      } else {
+        console.log('❌ No MetaMask popup found');
+        console.log('⏸️ Pausing for manual MetaMask confirmation');
+        await localAppTab.pause();
+        return;
       }
       
-      // Wait for popup to close
-      await popup.waitForEvent('close', { timeout: 10000 }).catch(() => {
-        console.log('ℹ️ MetaMask popup did not close within timeout');
-      });
+      console.log('✅ MetaMask signature handling completed');
       
     } catch (error) {
-      console.error('❌ Failed to handle MetaMask popup:', error);
+      console.error('❌ Failed to handle MetaMask signature popup:', error);
       console.log('⏸️ Pausing for manual MetaMask confirmation');
       await localAppTab.pause();
       return;
@@ -1763,6 +1765,7 @@ test.describe('MetaMask Connection to Safe Global', () => {
       console.log('🔍 Debug mode: Pausing for final inspection');
       await localAppTab.pause();
     }
+    await localAppTab.pause();
     
     console.log('✅ Settings navigation and Safe auth service WalletConnect test completed');
   });
