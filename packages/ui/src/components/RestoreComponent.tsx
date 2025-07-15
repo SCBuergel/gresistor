@@ -43,13 +43,10 @@ const CHAIN_OPTIONS = [
 ]
 
 export default function RestoreComponent({ shamirConfig, keyShardStorageBackend, encryptedDataStorage, safeConfig }: RestoreComponentProps) {
-  // Get WalletConnect Project ID from Vite environment
-  const walletConnectProjectId = (import.meta as any).env.VITE_WALLETCONNECT_PROJECT_ID
+  // Hardcoded WalletConnect Project ID
+  const walletConnectProjectId = '62626bd02bc0c91a73103509f9da4896'
   
   console.log('🔑 WalletConnect Project ID:', walletConnectProjectId)
-  if (!walletConnectProjectId) {
-    console.error('❌ WalletConnect Project ID is undefined! Check your .env file.')
-  }
 
   const [availableBackups, setAvailableBackups] = useState<StoredBackup[]>([])
   const [encryptedBlobHash, setEncryptedBlobHash] = useState<string>('')
@@ -129,13 +126,7 @@ export default function RestoreComponent({ shamirConfig, keyShardStorageBackend,
       console.log('🔧 Using Safe config for authentication:', actualSafeConfig)
       
       // Get WalletConnect Project ID from Vite environment
-      const authWalletConnectProjectId = (import.meta as any).env.VITE_WALLETCONNECT_PROJECT_ID
-      
-      if (!authWalletConnectProjectId) {
-        console.error('❌ WalletConnect Project ID not found in environment variables')
-        console.error('Please set VITE_WALLETCONNECT_PROJECT_ID in your .env file')
-        return
-      }
+      const authWalletConnectProjectId = '62626bd02bc0c91a73103509f9da4896'
       
       console.log('🔧 Initializing SIWESafeAuthService with Project ID:', authWalletConnectProjectId)
       
@@ -223,11 +214,7 @@ export default function RestoreComponent({ shamirConfig, keyShardStorageBackend,
       }
       console.log('🔧 Creating fresh SIWESafeAuthService with current Safe address:', currentSafeConfig.safeAddress)
       
-      const walletConnectProjectId = (import.meta as any).env.VITE_WALLETCONNECT_PROJECT_ID
-      
-      if (!walletConnectProjectId) {
-        throw new Error('WalletConnect Project ID not found in environment variables. Please set VITE_WALLETCONNECT_PROJECT_ID in your .env file')
-      }
+      const walletConnectProjectId = '62626bd02bc0c91a73103509f9da4896'
       
       const freshSiweService = new SIWESafeAuthService(currentSafeConfig, walletConnectProjectId)
       

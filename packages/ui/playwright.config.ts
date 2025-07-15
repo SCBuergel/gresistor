@@ -40,8 +40,8 @@ export default defineConfig({
     reuseExistingServer: !process.env.CI,
     timeout: 5000,
     env: {
-      REACT_APP_WALLETCONNECT_PROJECT_ID: process.env.REACT_APP_WALLETCONNECT_PROJECT_ID || 'test-project-id-for-playwright',
-      VITE_WALLETCONNECT_PROJECT_ID: process.env.VITE_WALLETCONNECT_PROJECT_ID || 'test-project-id-for-playwright',
+      REACT_APP_WALLETCONNECT_PROJECT_ID: '62626bd02bc0c91a73103509f9da4896',
+      VITE_WALLETCONNECT_PROJECT_ID: '62626bd02bc0c91a73103509f9da4896',
     },
   },
 });
