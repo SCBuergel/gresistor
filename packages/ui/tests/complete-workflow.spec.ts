@@ -3,6 +3,7 @@ import { bootstrap, getWallet, MetaMaskWallet } from '@tenkeylabs/dappwright';
 
 // Configuration constants
 const UI_INTERACTION_DELAY = 500; // Delay in ms after UI interactions to allow rendering
+const UI_INTERACTION_DELAY_LONG = 2000; // Delay in ms after UI interactions to allow rendering, e.g. for Metamask popup
 const DEFAULT_TIMEOUT = 10000; // Default timeout in ms for all Playwright operations
 
 // Debug mode - set to true to enable page.pause() at the end of each test
@@ -78,8 +79,7 @@ test.describe('MetaMask Connection to Safe Global', () => {
       expect(appContext).toBeDefined();
       
     } catch (error) {
-      console.error('❌ MetaMask bootstrap failed:', error);
-      throw error;
+      throw new Error(`MetaMask bootstrap failed: ${error.message}`);
     }
   });
 
@@ -131,7 +131,7 @@ test.describe('MetaMask Connection to Safe Global', () => {
         console.log('✓ Connect wallet button clicked');
         
         // Wait for wallet selection dialog
-        await safeTab.waitForTimeout(DEFAULT_TIMEOUT);
+        await safeTab.waitForTimeout(UI_INTERACTION_DELAY_LONG);
         
         // Look for MetaMask option in the wallet selection dialog
         const metamaskSelectors = [
@@ -159,7 +159,7 @@ test.describe('MetaMask Connection to Safe Global', () => {
           await popup.waitForLoadState('networkidle');
           
           // Wait a bit for popup to fully render
-          await popup.waitForTimeout(DEFAULT_TIMEOUT);
+          await popup.waitForTimeout(UI_INTERACTION_DELAY_LONG);
           
           // Look for connect/confirm buttons with more comprehensive selectors
           const confirmSelectors = [
@@ -182,7 +182,7 @@ test.describe('MetaMask Connection to Safe Global', () => {
                 await button.click();
                 console.log(`✓ Clicked ${selector} in MetaMask popup`);
                 buttonClicked = true;
-                await popup.waitForTimeout(DEFAULT_TIMEOUT);
+                await popup.waitForTimeout(UI_INTERACTION_DELAY);
                 break; // Exit after first successful click
               }
             } catch (e) {
@@ -191,7 +191,7 @@ test.describe('MetaMask Connection to Safe Global', () => {
           }
           
           if (!buttonClicked) {
-            console.log('⚠️ No clickable button found in MetaMask popup');
+            throw new Error('No clickable button found in MetaMask popup - unable to confirm connection');
           }
           
           // Wait for popup to close or timeout
@@ -205,16 +205,16 @@ test.describe('MetaMask Connection to Safe Global', () => {
         
         // Switch back to Safe Global tab
         await safeTab.bringToFront();
-        await safeTab.waitForTimeout(DEFAULT_TIMEOUT);
+        await safeTab.waitForTimeout(UI_INTERACTION_DELAY);
         
         console.log('🔗 MetaMask connection to Safe Global attempted');
         
       } else {
-        console.log('⚠️ Connect wallet button not found');
+        throw new Error('Connect wallet button not found - unable to proceed with wallet connection');
       }
       
     } catch (error) {
-      console.log('⚠️ Error during wallet connection:', error.message);
+      throw new Error(`Error during wallet connection: ${error.message}`);
     }
     
     if (DEBUG) await safeTab.pause();
@@ -876,21 +876,15 @@ test.describe('MetaMask Connection to Safe Global', () => {
     // Wait for backup list to load with retries
     let backupRadios;
     let backupCount = 0;
-    let attempts = 0;
-    const maxAttempts = 10;
-    
-    while (backupCount === 0 && attempts < maxAttempts) {
-      await localAppTab.waitForTimeout(DEFAULT_TIMEOUT); // Wait between attempts
-      backupRadios = localAppTab.locator('input[type="radio"][name="backup"]');
-      backupCount = await backupRadios.count();
-      attempts++;
-      console.log(`Attempt ${attempts}: Found ${backupCount} backups`);
-    }
+    await localAppTab.waitForTimeout(UI_INTERACTION_DELAY); // Wait between attempts
+    backupRadios = localAppTab.locator('input[type="radio"][name="backup"]');
+    backupCount = await backupRadios.count();
+    console.log(`Found ${backupCount} backups`);
     
     if (backupCount === 0) {
       // Take a screenshot for debugging
       await localAppTab.screenshot({ path: 'no-backups-debug.png' });
-      throw new Error(`No backups found in restore list after ${maxAttempts} attempts - check no-backups-debug.png`);
+      throw new Error(`No backups found in restore list - check no-backups-debug.png`);
     }
     
     console.log(`✓ Found ${backupCount} backups`);
@@ -981,7 +975,7 @@ test.describe('MetaMask Connection to Safe Global', () => {
     
     // Wait for shards to load and click on shards from authenticated services
     console.log('🔍 Waiting for shards to load...');
-    await localAppTab.waitForTimeout(DEFAULT_TIMEOUT);
+    await localAppTab.waitForTimeout(UI_INTERACTION_DELAY);
     
     // Find and click shard checkboxes using the working generic approach
     console.log('🎯 Finding and clicking shard checkboxes...');
@@ -1024,19 +1018,16 @@ test.describe('MetaMask Connection to Safe Global', () => {
                   console.log(`  Backup: ${backupTimestamp}`);
                   console.log(`  Shard:  ${shardTimestamp}`);
                 } else {
-                  console.log(`❌ Timestamp verification FAILED for shard ${i + 1}`);
-                  console.log(`  Expected: ${backupTimestamp}`);
-                  console.log(`  Found:    ${shardTimestamp}`);
-                  throw new Error(`Timestamp mismatch for shard ${i + 1}: expected '${backupTimestamp}' but found '${shardTimestamp}'`);
+                  throw new Error(`Timestamp verification FAILED for shard ${i + 1}: expected '${backupTimestamp}' but found '${shardTimestamp}'`);
                 }
               } else {
-                console.log(`⚠️ Could not extract timestamp from: ${timestampText}`);
+                throw new Error(`Could not extract timestamp from shard ${i + 1}: ${timestampText}`);
               }
             } else {
-              console.log(`⚠️ No timestamp found for shard ${i + 1}`);
+              throw new Error(`No timestamp found for shard ${i + 1} - cannot verify backup integrity`);
             }
           } catch (error) {
-            console.log(`⚠️ Error extracting timestamp for shard ${i + 1}: ${error.message}`);
+            throw new Error(`Error extracting timestamp for shard ${i + 1}: ${error.message}`);
           }
           
           if (shardsClicked >= 2) break; // We need at least 2 shards
@@ -1088,9 +1079,8 @@ test.describe('MetaMask Connection to Safe Global', () => {
       await localAppTab.waitForSelector('text=Age:', { timeout: DEFAULT_TIMEOUT });
       console.log('✓ Restore completion confirmed - found restored profile data');
     } catch (e) {
-      console.log('⚠️ Restore completion verification failed - taking screenshot');
       await localAppTab.screenshot({ path: 'restore-debug.png' });
-      throw new Error('Restore completion not detected - check restore-debug.png');
+      throw new Error('Restore completion verification failed - check restore-debug.png');
     }
     
     if (DEBUG) {
@@ -1099,6 +1089,158 @@ test.describe('MetaMask Connection to Safe Global', () => {
     }
     
     console.log('✅ Restore completed successfully using Mock Auth Service 1 & 2');
+  });
+
+  test('08 - Restore other backup using No Auth and Mock Auth services', async () => {
+    console.log('\n=== TEST 08 - Restore other backup using No Auth and Mock Auth services ===');
+    console.log('🔄 Restoring the other backup using No Auth and Mock Auth services...');
+    
+    // Reuse the existing localhost:3000 tab
+    const pages = await appContext.pages();
+    let localAppTab: any = null;
+    
+    // Find the existing localhost:3000 tab
+    for (const page of pages) {
+      const url = page.url();
+      if (url.includes('localhost:3000')) {
+        localAppTab = page;
+        break;
+      }
+    }
+    
+    if (!localAppTab) {
+      throw new Error('localhost:3000 tab not found');
+    }
+    
+    // Reset UI by clicking Backup tab first, then Restore tab
+    console.log('🔄 Resetting UI by clicking Backup tab...');
+    const backupTabBtn = localAppTab.locator('nav button', { hasText: 'Backup' });
+    if (!(await backupTabBtn.isVisible({ timeout: DEFAULT_TIMEOUT }))) {
+      throw new Error('Backup tab button not found');
+    }
+    await backupTabBtn.click();
+    await localAppTab.waitForTimeout(UI_INTERACTION_DELAY);
+    console.log('✓ Clicked Backup tab');
+    
+    // Navigate to Restore tab
+    console.log('📂 Navigating to Restore tab...');
+    const restoreTabBtn = localAppTab.locator('nav button', { hasText: 'Restore' });
+    if (!(await restoreTabBtn.isVisible({ timeout: DEFAULT_TIMEOUT }))) {
+      throw new Error('Restore tab button not found');
+    }
+    await restoreTabBtn.click();
+    await localAppTab.waitForTimeout(UI_INTERACTION_DELAY);
+    console.log('✓ Navigated to Restore tab');
+    
+    // Select the second backup directly
+    console.log('📋 Selecting second backup...');
+    await localAppTab.waitForTimeout(UI_INTERACTION_DELAY); // Wait for backups to load
+    
+    const secondBackupRadio = localAppTab.locator('input[type="radio"][name="backup"]').nth(1);
+    await secondBackupRadio.click();
+    console.log('✓ Selected second backup');
+    
+    // Select No Auth Service with address "1"
+    console.log('🔑 Selecting No Auth Service with address "1"...');
+    const noAuthOwnerInput = localAppTab.locator('[data-testid="no-auth-owner-address"]');
+    if (!(await noAuthOwnerInput.isVisible({ timeout: DEFAULT_TIMEOUT }))) {
+      throw new Error('No Auth Service owner input not found');
+    }
+    await noAuthOwnerInput.fill('1'); // Address 1
+    
+    const noAuthSelectBtn = localAppTab.locator('[data-testid="no-auth-service-authenticate-button"]');
+    if (!(await noAuthSelectBtn.isVisible({ timeout: DEFAULT_TIMEOUT }))) {
+      throw new Error('No Auth Service authenticate button not found');
+    }
+    await noAuthSelectBtn.click();
+    console.log('✓ No Auth Service selected with address "1"');
+    
+    // Select Mock Auth Service with address "123" and signature "246"
+    console.log('🔑 Selecting Mock Auth Service with address "123", signature "246"...');
+    const mockAuthOwnerInput = localAppTab.locator('[data-testid="mock-auth-owner-address"]');
+    if (!(await mockAuthOwnerInput.isVisible({ timeout: DEFAULT_TIMEOUT }))) {
+      throw new Error('Mock Auth Service owner input not found');
+    }
+    await mockAuthOwnerInput.fill('123'); // Address 123
+    
+    const mockAuthSignatureInput = localAppTab.locator('[data-testid="mock-auth-signature"], input[placeholder*="signature"]').first();
+    if (await mockAuthSignatureInput.isVisible({ timeout: 2000 })) {
+      await mockAuthSignatureInput.fill('246'); // Signature 246
+    }
+    
+    // Wait a moment for the form to update
+    await localAppTab.waitForTimeout(UI_INTERACTION_DELAY);
+    
+    // Use the correct data-testid for the Mock Auth Service (not 2 or 3)
+    const mockAuthSelectBtn = localAppTab.locator('[data-testid="mock-auth-service-authenticate-button"]');
+    if (!(await mockAuthSelectBtn.isVisible({ timeout: DEFAULT_TIMEOUT }))) {
+      throw new Error('Mock Auth Service authenticate button not found');
+    }
+    await mockAuthSelectBtn.click();
+    console.log('✓ Mock Auth Service selected with address "123", signature "246"');
+    
+    // Select required shards (at least 2)
+    console.log('🔍 Selecting required shards...');
+    const shardCheckboxes = localAppTab.locator('input[type="checkbox"]');
+    const checkboxCount = await shardCheckboxes.count();
+    console.log(`📊 Found ${checkboxCount} shard checkboxes`);
+    
+    let shardsClicked = 0;
+    for (let i = 0; i < checkboxCount && shardsClicked < 2; i++) {
+      const checkbox = shardCheckboxes.nth(i);
+      if (await checkbox.isVisible({ timeout: 2000 })) {
+        const isChecked = await checkbox.isChecked();
+        if (!isChecked) {
+          await checkbox.click();
+          shardsClicked++;
+          console.log(`✓ Clicked shard checkbox ${i + 1}`);
+        } else {
+          shardsClicked++;
+          console.log(`✓ Shard checkbox ${i + 1} already selected`);
+        }
+        if (shardsClicked >= 2) break;
+      }
+    }
+    
+    console.log(`📊 Total shards selected: ${shardsClicked}`);
+    
+    if (shardsClicked === 0) {
+      throw new Error('No shard checkboxes found or clicked - cannot proceed with restore');
+    }
+    
+    // Find and click Restore button
+    console.log('🔄 Restoring backup...');
+    const restoreBtn = localAppTab.locator('button', { hasText: 'Restore' }).last();
+    if (!(await restoreBtn.isVisible({ timeout: 5000 }))) {
+      throw new Error('Restore button not found');
+    }
+    
+    // Check if Restore button is enabled
+    if (!(await restoreBtn.isEnabled({ timeout: 5000 }))) {
+      throw new Error('Restore button is not enabled - required services may not be selected properly');
+    }
+    
+    await restoreBtn.click();
+    console.log('✓ Restore button clicked');
+    
+    // Verify restore was successful
+    console.log('🔍 Verifying restore completion...');
+    
+    try {
+      // Use the working selector: text=Age:
+      await localAppTab.waitForSelector('text=Age:', { timeout: DEFAULT_TIMEOUT });
+      console.log('✓ Restore completion confirmed - found restored profile data');
+    } catch (e) {
+      await localAppTab.screenshot({ path: 'restore-other-backup-debug.png' });
+      throw new Error('Restore completion verification failed - check restore-other-backup-debug.png');
+    }
+    
+    if (DEBUG) {
+      console.log('🔍 Debug mode: Pausing for restore inspection');
+      await localAppTab.pause();
+    }
+    
+    console.log('✅ Other backup restored successfully using No Auth Service (address 1) and Mock Auth Service (address 123, signature 2)');
   });
 
 });

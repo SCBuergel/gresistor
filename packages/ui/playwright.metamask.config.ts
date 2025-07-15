@@ -6,7 +6,7 @@ import { defineConfig, devices } from '@playwright/test';
  */
 export default defineConfig({
   testDir: './tests',
-  testMatch: '**/metamask-integration.spec.ts',
+  testMatch: '**/complete-workflow.spec.ts',
   
   /* Single worker for MetaMask tests to avoid conflicts */
   workers: 1,
