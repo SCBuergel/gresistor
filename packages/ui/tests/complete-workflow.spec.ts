@@ -1656,31 +1656,12 @@ test.describe('MetaMask Connection to Safe Global', () => {
       // Verify Safe Auth Service is now authenticated
       console.log('🔍 Verifying Safe Auth Service authentication status...');
       
-      // Look for authentication success indicators
-      const authSuccessSelectors = [
-        'text=✅',
-        'text=Authenticated',
-        'text=Connected',
-        '[data-testid*="authenticated"]',
-        '[data-testid*="success"]'
-      ];
-      
-      let authVerified = false;
-      for (const selector of authSuccessSelectors) {
-        try {
-          const element = localAppTab.locator(selector).first();
-          if (await element.isVisible({ timeout: 2000 })) {
-            console.log(`✅ Authentication verified with selector: ${selector}`);
-            authVerified = true;
-            break;
-          }
-        } catch (e) {
-          // Continue to next selector
-        }
-      }
-      
-      if (!authVerified) {
-        console.log('⚠️ Authentication status unclear, continuing with restore...');
+      // Look for the specific authentication confirmation text
+      const authElement = localAppTab.locator('text=Authenticated with:').first();
+      if (await authElement.isVisible({ timeout: 5000 })) {
+        console.log('✅ Safe Auth Service authentication verified - found "Authenticated with:" text');
+      } else {
+        console.log('⚠️ Safe Auth Service authentication status unclear, continuing with restore...');
       }
       
     } catch (error) {
