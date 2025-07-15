@@ -1,4 +1,8 @@
 import { defineConfig, devices } from '@playwright/test';
+import dotenv from 'dotenv';
+
+// Load environment variables from .env file for test runs
+dotenv.config();
 
 /**
  * @see https://playwright.dev/docs/test-configuration
@@ -36,8 +40,8 @@ export default defineConfig({
     reuseExistingServer: !process.env.CI,
     timeout: 5000,
     env: {
-      REACT_APP_WALLETCONNECT_PROJECT_ID: 'test-project-id-for-playwright',
-      VITE_WALLETCONNECT_PROJECT_ID: 'test-project-id-for-playwright',
+      REACT_APP_WALLETCONNECT_PROJECT_ID: process.env.REACT_APP_WALLETCONNECT_PROJECT_ID || 'test-project-id-for-playwright',
+      VITE_WALLETCONNECT_PROJECT_ID: process.env.VITE_WALLETCONNECT_PROJECT_ID || 'test-project-id-for-playwright',
     },
   },
 });

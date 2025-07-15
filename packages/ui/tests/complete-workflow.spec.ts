@@ -1450,19 +1450,108 @@ test.describe('MetaMask Connection to Safe Global', () => {
       console.log('⚠️ WalletConnect popup not immediately visible, but continuing...');
     }
     
-    // Pause for manual inspection as requested
-    console.log('⏸️ PAUSING FOR MANUAL INSPECTION:');
-    console.log('   - Check where WalletConnect link/QR code appears');
-    console.log('   - Inspect how to extract the connection link');
-    console.log('   - See how to paste it into Safe web app');
-    console.log('   - Press Continue when ready to proceed');
+    // Automated WalletConnect URI extraction and Safe UI automation
+    console.log('🤖 Starting automated WalletConnect URI extraction and Safe UI integration...');
     
-    if (DEBUG) {
+    // Extract WalletConnect URI from QR code component
+    console.log('🔍 Looking for WalletConnect QR code component...');
+    
+    let walletConnectUri: string | null = null;
+    
+    try {
+      // Wait for the QR code element to appear
+      const qrCodeElement = localAppTab.locator('wui-qr-code[data-testid="wui-qr-code"]');
+      await qrCodeElement.waitFor({ timeout: 10000 });
+      
+      // Extract the URI from the uri attribute
+      walletConnectUri = await qrCodeElement.getAttribute('uri');
+      
+      if (!walletConnectUri) {
+        throw new Error('URI attribute not found on QR code element');
+      }
+      
+      console.log('✅ WalletConnect URI extracted:', walletConnectUri);
+      
+    } catch (error) {
+      console.error('❌ Failed to extract WalletConnect URI:', error);
+      console.log('⏸️ Pausing for manual inspection due to extraction failure');
       await localAppTab.pause();
-    } else {
-      // Always pause here for manual inspection as requested
+      return;
+    }
+    
+    // Now switch to Safe UI and paste the URI
+    console.log('🔄 Switching to Safe UI tab to paste WalletConnect URI...');
+    
+    try {
+      // Find existing Safe UI tab or create new one
+      const safeUIUrl = 'https://app.safe.global/home?safe=gno:0x4f4f1091Bf0F4b9F3c85031DDc4cf196653b18a0';
+      let safeUITab;
+      
+      // Try to find existing Safe UI tab
+      const existingTabs = appContext.pages();
+      safeUITab = existingTabs.find(page => page.url().includes('app.safe.global'));
+      
+      if (!safeUITab) {
+        console.log('📂 Creating new Safe UI tab...');
+        safeUITab = await appContext.newPage();
+        await safeUITab.goto(safeUIUrl);
+        await safeUITab.waitForLoadState('networkidle');
+      } else {
+        console.log('✅ Found existing Safe UI tab');
+        await safeUITab.bringToFront();
+      }
+      
+      // Look for and click the WalletConnect button
+      console.log('🔍 Looking for WalletConnect button in Safe UI...');
+      const walletConnectButton = safeUITab.locator('button[title="WalletConnect"]');
+      await walletConnectButton.waitFor({ timeout: 10000 });
+      await walletConnectButton.click();
+      
+      console.log('✅ WalletConnect button clicked in Safe UI');
+      
+      // Wait for the input field to appear
+      console.log('🔍 Waiting for WalletConnect input field...');
+      const inputField = safeUITab.locator('input[placeholder="wc:"]');
+      await inputField.waitFor({ timeout: 5000 });
+      
+      // Clear and paste the URI
+      await inputField.clear();
+      await inputField.fill(walletConnectUri);
+      
+      console.log('✅ WalletConnect URI pasted successfully into Safe UI');
+      
+      // Wait for confirmation popup and click Approve button
+      console.log('🔍 Waiting for confirmation popup with Approve button...');
+      const approveButton = safeUITab.locator('button:has-text("Approve")');
+      await approveButton.waitFor({ timeout: 10000 });
+      await approveButton.click();
+      
+      console.log('✅ Approve button clicked successfully');
+      
+      console.log('🎉 WalletConnect automation completed successfully!');
+      console.log('   - URI extracted from localhost QR code');
+      console.log('   - URI pasted into Safe UI input field');
+      console.log('   - Approve button clicked in confirmation popup');
+      console.log('   - Connection should now proceed automatically');
+      
+      // Wait a moment to see the connection process
+      await localAppTab.waitForTimeout(UI_INTERACTION_DELAY_LONG);
+      
+    } catch (error) {
+      console.error('❌ Failed to automate Safe UI interaction:', error);
+      console.log('⏸️ Pausing for manual inspection due to Safe UI automation failure');
+      console.log('   - WalletConnect URI was extracted:', walletConnectUri);
+      console.log('   - You can manually paste it into Safe UI');
+      await localAppTab.pause();
+      return;
+    }
+    
+    // Optional: Pause for final inspection if DEBUG mode is enabled
+    if (DEBUG) {
+      console.log('🔍 Debug mode: Pausing for final inspection');
       await localAppTab.pause();
     }
+    await localAppTab.pause();
     
     console.log('✅ Settings navigation and Safe auth service WalletConnect test completed');
   });
