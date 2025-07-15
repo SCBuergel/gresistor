@@ -3,6 +3,7 @@ import { bootstrap, getWallet, MetaMaskWallet } from '@tenkeylabs/dappwright';
 
 // Configuration constants
 const UI_INTERACTION_DELAY = 500; // Delay in ms after UI interactions to allow rendering
+const DEFAULT_TIMEOUT = 10000; // Default timeout in ms for all Playwright operations
 
 // Debug mode - set to true to enable page.pause() at the end of each test
 const DEBUG = process.env.DEBUG === 'true' || process.env.PWDEBUG === '1';
@@ -118,7 +119,7 @@ test.describe('MetaMask Connection to Safe Global', () => {
       let connectButton: any = null;
       for (const selector of connectSelectors) {
         const element = safeTab.locator(selector).first();
-        if (await element.isVisible({ timeout: 2000 })) {
+        if (await element.isVisible({ timeout: DEFAULT_TIMEOUT })) {
           connectButton = element;
           console.log(`✓ Connect wallet button found with selector: ${selector}`);
           break;
@@ -130,7 +131,7 @@ test.describe('MetaMask Connection to Safe Global', () => {
         console.log('✓ Connect wallet button clicked');
         
         // Wait for wallet selection dialog
-        await safeTab.waitForTimeout(2000);
+        await safeTab.waitForTimeout(DEFAULT_TIMEOUT);
         
         // Look for MetaMask option in the wallet selection dialog
         const metamaskSelectors = [
@@ -142,7 +143,7 @@ test.describe('MetaMask Connection to Safe Global', () => {
         
         for (const selector of metamaskSelectors) {
           const metamaskButton = safeTab.locator(selector).first();
-          if (await metamaskButton.isVisible({ timeout: 2000 })) {
+          if (await metamaskButton.isVisible({ timeout: DEFAULT_TIMEOUT })) {
             await metamaskButton.click();
             console.log('✓ MetaMask wallet selected');
             break;
@@ -151,14 +152,14 @@ test.describe('MetaMask Connection to Safe Global', () => {
         
         // Handle potential MetaMask popup
         try {
-          const popupPromise = appContext.waitForEvent('page', { timeout: 10000 });
+          const popupPromise = appContext.waitForEvent('page', { timeout: DEFAULT_TIMEOUT });
           const popup = await popupPromise;
           
           console.log('🦊 MetaMask popup detected');
           await popup.waitForLoadState('networkidle');
           
           // Wait a bit for popup to fully render
-          await popup.waitForTimeout(2000);
+          await popup.waitForTimeout(DEFAULT_TIMEOUT);
           
           // Look for connect/confirm buttons with more comprehensive selectors
           const confirmSelectors = [
@@ -177,11 +178,11 @@ test.describe('MetaMask Connection to Safe Global', () => {
           for (const selector of confirmSelectors) {
             try {
               const button = popup.locator(selector).first();
-              if (await button.isVisible({ timeout: 1000 })) {
+              if (await button.isVisible({ timeout: DEFAULT_TIMEOUT })) {
                 await button.click();
                 console.log(`✓ Clicked ${selector} in MetaMask popup`);
                 buttonClicked = true;
-                await popup.waitForTimeout(1000);
+                await popup.waitForTimeout(DEFAULT_TIMEOUT);
                 break; // Exit after first successful click
               }
             } catch (e) {
@@ -194,7 +195,7 @@ test.describe('MetaMask Connection to Safe Global', () => {
           }
           
           // Wait for popup to close or timeout
-          await popup.waitForEvent('close', { timeout: 15000 }).catch(() => {
+          await popup.waitForEvent('close', { timeout: DEFAULT_TIMEOUT }).catch(() => {
             console.log('ℹ️ MetaMask popup did not close within timeout');
           });
           
@@ -204,7 +205,7 @@ test.describe('MetaMask Connection to Safe Global', () => {
         
         // Switch back to Safe Global tab
         await safeTab.bringToFront();
-        await safeTab.waitForTimeout(3000);
+        await safeTab.waitForTimeout(DEFAULT_TIMEOUT);
         
         console.log('🔗 MetaMask connection to Safe Global attempted');
         
@@ -248,7 +249,7 @@ test.describe('MetaMask Connection to Safe Global', () => {
     console.log('✓ Local app title verification passed');
     
     // Verify basic page structure
-    await localAppTab.waitForSelector('body', { timeout: 5000 });
+    await localAppTab.waitForSelector('body', { timeout: DEFAULT_TIMEOUT });
     console.log('✓ Local app body element found');
     
     if (DEBUG) {
@@ -319,28 +320,28 @@ test.describe('MetaMask Connection to Safe Global', () => {
     
     // Check if Create New Service button exists
     const createServiceBtn = localAppTab.locator('button', { hasText: 'Create New Service' });
-    if (!(await createServiceBtn.isVisible({ timeout: 5000 }))) {
+    if (!(await createServiceBtn.isVisible({ timeout: DEFAULT_TIMEOUT }))) {
       throw new Error('Create New Service button not found');
     }
     await createServiceBtn.click();
     
     // Check and fill service name
     const serviceNameInput = localAppTab.locator('#new-service-name');
-    if (!(await serviceNameInput.isVisible({ timeout: 5000 }))) {
+    if (!(await serviceNameInput.isVisible({ timeout: DEFAULT_TIMEOUT }))) {
       throw new Error('Service name input (#new-service-name) not found');
     }
     await serviceNameInput.fill('No Auth Service');
     
     // Check and select auth type
     const authTypeSelect = localAppTab.locator('#new-service-auth-type');
-    if (!(await authTypeSelect.isVisible({ timeout: 5000 }))) {
+    if (!(await authTypeSelect.isVisible({ timeout: DEFAULT_TIMEOUT }))) {
       throw new Error('Auth type select (#new-service-auth-type) not found');
     }
     await authTypeSelect.selectOption('no-auth');
     
     // Check and fill description
     const descriptionInput = localAppTab.locator('#new-service-description');
-    if (!(await descriptionInput.isVisible({ timeout: 5000 }))) {
+    if (!(await descriptionInput.isVisible({ timeout: DEFAULT_TIMEOUT }))) {
       throw new Error('Description input (#new-service-description) not found');
     }
     await descriptionInput.fill('Service with no authorization');
@@ -349,7 +350,7 @@ test.describe('MetaMask Connection to Safe Global', () => {
     
     // Check and click create service button
     const createBtn = localAppTab.locator('button', { hasText: 'Create Service' });
-    if (!(await createBtn.isVisible({ timeout: 5000 }))) {
+    if (!(await createBtn.isVisible({ timeout: DEFAULT_TIMEOUT }))) {
       throw new Error('Create Service button not found');
     }
     await createBtn.click();
@@ -363,28 +364,28 @@ test.describe('MetaMask Connection to Safe Global', () => {
     
     // Check if Create New Service button exists
     const createServiceBtn2 = localAppTab.locator('button', { hasText: 'Create New Service' });
-    if (!(await createServiceBtn2.isVisible({ timeout: 5000 }))) {
+    if (!(await createServiceBtn2.isVisible({ timeout: DEFAULT_TIMEOUT }))) {
       throw new Error('Create New Service button not found for second service');
     }
     await createServiceBtn2.click();
     
     // Check and fill service name
     const serviceNameInput2 = localAppTab.locator('#new-service-name');
-    if (!(await serviceNameInput2.isVisible({ timeout: 5000 }))) {
+    if (!(await serviceNameInput2.isVisible({ timeout: DEFAULT_TIMEOUT }))) {
       throw new Error('Service name input (#new-service-name) not found for second service');
     }
     await serviceNameInput2.fill('Mock Auth Service');
     
     // Check and select auth type
     const authTypeSelect2 = localAppTab.locator('#new-service-auth-type');
-    if (!(await authTypeSelect2.isVisible({ timeout: 5000 }))) {
+    if (!(await authTypeSelect2.isVisible({ timeout: DEFAULT_TIMEOUT }))) {
       throw new Error('Auth type select (#new-service-auth-type) not found for second service');
     }
     await authTypeSelect2.selectOption('mock-signature-2x');
     
     // Check and fill description
     const descriptionInput2 = localAppTab.locator('#new-service-description');
-    if (!(await descriptionInput2.isVisible({ timeout: 5000 }))) {
+    if (!(await descriptionInput2.isVisible({ timeout: DEFAULT_TIMEOUT }))) {
       throw new Error('Description input (#new-service-description) not found for second service');
     }
     await descriptionInput2.fill('Service with mock authorization');
@@ -393,7 +394,7 @@ test.describe('MetaMask Connection to Safe Global', () => {
     
     // Check and click create service button
     const createBtn2 = localAppTab.locator('button', { hasText: 'Create Service' });
-    if (!(await createBtn2.isVisible({ timeout: 5000 }))) {
+    if (!(await createBtn2.isVisible({ timeout: DEFAULT_TIMEOUT }))) {
       throw new Error('Create Service button not found for second service');
     }
     await createBtn2.click();
@@ -407,28 +408,28 @@ test.describe('MetaMask Connection to Safe Global', () => {
     
     // Check if Create New Service button exists
     const createServiceBtn3 = localAppTab.locator('button', { hasText: 'Create New Service' });
-    if (!(await createServiceBtn3.isVisible({ timeout: 5000 }))) {
+    if (!(await createServiceBtn3.isVisible({ timeout: DEFAULT_TIMEOUT }))) {
       throw new Error('Create New Service button not found for third service');
     }
     await createServiceBtn3.click();
     
     // Check and fill service name
     const serviceNameInput3 = localAppTab.locator('#new-service-name');
-    if (!(await serviceNameInput3.isVisible({ timeout: 5000 }))) {
+    if (!(await serviceNameInput3.isVisible({ timeout: DEFAULT_TIMEOUT }))) {
       throw new Error('Service name input (#new-service-name) not found for third service');
     }
     await serviceNameInput3.fill('Safe Auth Service');
     
     // Check and select auth type
     const authTypeSelect3 = localAppTab.locator('#new-service-auth-type');
-    if (!(await authTypeSelect3.isVisible({ timeout: 5000 }))) {
+    if (!(await authTypeSelect3.isVisible({ timeout: DEFAULT_TIMEOUT }))) {
       throw new Error('Auth type select (#new-service-auth-type) not found for third service');
     }
     await authTypeSelect3.selectOption('safe-signature');
     
     // Check and fill description
     const descriptionInput3 = localAppTab.locator('#new-service-description');
-    if (!(await descriptionInput3.isVisible({ timeout: 5000 }))) {
+    if (!(await descriptionInput3.isVisible({ timeout: DEFAULT_TIMEOUT }))) {
       throw new Error('Description input (#new-service-description) not found for third service');
     }
     await descriptionInput3.fill('Service with Safe authorization');
@@ -437,7 +438,7 @@ test.describe('MetaMask Connection to Safe Global', () => {
     
     // Check and click create service button
     const createBtn3 = localAppTab.locator('button', { hasText: 'Create Service' });
-    if (!(await createBtn3.isVisible({ timeout: 5000 }))) {
+    if (!(await createBtn3.isVisible({ timeout: DEFAULT_TIMEOUT }))) {
       throw new Error('Create Service button not found for third service');
     }
     await createBtn3.click();
@@ -491,7 +492,7 @@ test.describe('MetaMask Connection to Safe Global', () => {
     
     // Navigate to backup tab
     const backupTabBtn = localAppTab.locator('nav button', { hasText: 'Backup' });
-    if (!(await backupTabBtn.isVisible({ timeout: 5000 }))) {
+    if (!(await backupTabBtn.isVisible({ timeout: DEFAULT_TIMEOUT }))) {
       throw new Error('Backup tab button not found');
     }
     await backupTabBtn.click();
@@ -503,20 +504,20 @@ test.describe('MetaMask Connection to Safe Global', () => {
     
     // Find the No Auth Service section
     const noAuthServiceSection = localAppTab.locator('text=No Auth Service').locator('..');
-    if (!(await noAuthServiceSection.isVisible({ timeout: 5000 }))) {
+    if (!(await noAuthServiceSection.isVisible({ timeout: DEFAULT_TIMEOUT }))) {
       throw new Error('No Auth Service section not found');
     }
     
     // Find and fill owner input for No Auth Service using correct data-testid
     const noAuthOwnerInput = localAppTab.locator('[data-testid="no-auth-owner-address"]');
-    if (!(await noAuthOwnerInput.isVisible({ timeout: 5000 }))) {
+    if (!(await noAuthOwnerInput.isVisible({ timeout: DEFAULT_TIMEOUT }))) {
       throw new Error('No Auth Service owner input not found');
     }
     await noAuthOwnerInput.fill('1');
     
     // Find and click Select button for No Auth Service using correct data-testid
     const noAuthSelectBtn = localAppTab.locator('[data-testid="service-select-no-auth-service"]');
-    if (!(await noAuthSelectBtn.isVisible({ timeout: 5000 }))) {
+    if (!(await noAuthSelectBtn.isVisible({ timeout: DEFAULT_TIMEOUT }))) {
       throw new Error('No Auth Service Select button not found');
     }
     await noAuthSelectBtn.click();
@@ -527,20 +528,20 @@ test.describe('MetaMask Connection to Safe Global', () => {
     
     // Find the Mock Auth Service section
     const mockAuthServiceSection = localAppTab.locator('text=Mock Auth Service').locator('..');
-    if (!(await mockAuthServiceSection.isVisible({ timeout: 5000 }))) {
+    if (!(await mockAuthServiceSection.isVisible({ timeout: DEFAULT_TIMEOUT }))) {
       throw new Error('Mock Auth Service section not found');
     }
     
     // Find and fill owner input for Mock Auth Service using correct data-testid
     const mockAuthOwnerInput = localAppTab.locator('[data-testid="mock-auth-owner-address"]');
-    if (!(await mockAuthOwnerInput.isVisible({ timeout: 5000 }))) {
+    if (!(await mockAuthOwnerInput.isVisible({ timeout: DEFAULT_TIMEOUT }))) {
       throw new Error('Mock Auth Service owner input not found');
     }
     await mockAuthOwnerInput.fill('123');
     
     // Find and click Select button for Mock Auth Service using correct data-testid
     const mockAuthSelectBtn = localAppTab.locator('[data-testid="service-select-mock-auth-service"]');
-    if (!(await mockAuthSelectBtn.isVisible({ timeout: 5000 }))) {
+    if (!(await mockAuthSelectBtn.isVisible({ timeout: DEFAULT_TIMEOUT }))) {
       throw new Error('Mock Auth Service Select button not found');
     }
     await mockAuthSelectBtn.click();
@@ -551,20 +552,20 @@ test.describe('MetaMask Connection to Safe Global', () => {
     
     // Find the Safe Auth Service section
     const safeAuthServiceSection = localAppTab.locator('text=Safe Auth Service').locator('..');
-    if (!(await safeAuthServiceSection.isVisible({ timeout: 5000 }))) {
+    if (!(await safeAuthServiceSection.isVisible({ timeout: DEFAULT_TIMEOUT }))) {
       throw new Error('Safe Auth Service section not found');
     }
     
     // Find and fill Safe Address input for Safe Auth Service using correct data-testid
     const safeAuthOwnerInput = localAppTab.locator('[data-testid="safe-auth-owner-address"]');
-    if (!(await safeAuthOwnerInput.isVisible({ timeout: 5000 }))) {
+    if (!(await safeAuthOwnerInput.isVisible({ timeout: DEFAULT_TIMEOUT }))) {
       throw new Error('Safe Auth Service owner input not found');
     }
     await safeAuthOwnerInput.fill('0x4f4f1091Bf0F4b9F3c85031DDc4cf196653b18a0');
     
     // Find and click Select button for Safe Auth Service using correct data-testid
     const safeAuthSelectBtn = localAppTab.locator('[data-testid="service-select-safe-auth-service"]');
-    if (!(await safeAuthSelectBtn.isVisible({ timeout: 5000 }))) {
+    if (!(await safeAuthSelectBtn.isVisible({ timeout: DEFAULT_TIMEOUT }))) {
       throw new Error('Safe Auth Service Select button not found');
     }
     await safeAuthSelectBtn.click();
@@ -573,14 +574,14 @@ test.describe('MetaMask Connection to Safe Global', () => {
     // Find and click Create Backup button
     console.log('💾 Creating backup...');
     const createBackupBtn = localAppTab.locator('button', { hasText: 'Create Backup' });
-    if (!(await createBackupBtn.isVisible({ timeout: 5000 }))) {
+    if (!(await createBackupBtn.isVisible({ timeout: DEFAULT_TIMEOUT }))) {
       throw new Error('Create Backup button not found');
     }
     
     await localAppTab.waitForTimeout(UI_INTERACTION_DELAY);
 
     // Check if Create Backup button is enabled
-    if (!(await createBackupBtn.isEnabled({ timeout: 5000 }))) {
+    if (!(await createBackupBtn.isEnabled({ timeout: DEFAULT_TIMEOUT }))) {
       throw new Error('Create Backup button is not enabled - all services may not be selected properly');
     }
     
@@ -592,7 +593,7 @@ test.describe('MetaMask Connection to Safe Global', () => {
     
     // Wait for backup creation to complete and look for confirmation
     try {
-      await localAppTab.waitForSelector('text=Backup completed successfully!', { timeout: 10000 });
+      await localAppTab.waitForSelector('text=Backup completed successfully!', { timeout: DEFAULT_TIMEOUT });
       console.log('✓ Backup confirmation found');
     } catch (e) {
       // Take a screenshot for debugging if backup confirmation not found
@@ -634,7 +635,7 @@ test.describe('MetaMask Connection to Safe Global', () => {
     
     // Navigate to config tab
     const configTabBtn = localAppTab.locator('nav button', { hasText: 'Config' });
-    if (!(await configTabBtn.isVisible({ timeout: 5000 }))) {
+    if (!(await configTabBtn.isVisible({ timeout: DEFAULT_TIMEOUT }))) {
       throw new Error('Config tab button not found');
     }
     await configTabBtn.click();
@@ -644,31 +645,31 @@ test.describe('MetaMask Connection to Safe Global', () => {
     console.log('🔑 Creating Mock Auth Service 2...');
     
     const createServiceBtn4 = localAppTab.locator('button', { hasText: 'Create New Service' });
-    if (!(await createServiceBtn4.isVisible({ timeout: 5000 }))) {
+    if (!(await createServiceBtn4.isVisible({ timeout: DEFAULT_TIMEOUT }))) {
       throw new Error('Create New Service button not found for fourth service');
     }
     await createServiceBtn4.click();
     
     const serviceNameInput4 = localAppTab.locator('#new-service-name');
-    if (!(await serviceNameInput4.isVisible({ timeout: 5000 }))) {
+    if (!(await serviceNameInput4.isVisible({ timeout: DEFAULT_TIMEOUT }))) {
       throw new Error('Service name input not found for fourth service');
     }
     await serviceNameInput4.fill('Mock Auth Service 2');
     
     const authTypeSelect4 = localAppTab.locator('#new-service-auth-type');
-    if (!(await authTypeSelect4.isVisible({ timeout: 5000 }))) {
+    if (!(await authTypeSelect4.isVisible({ timeout: DEFAULT_TIMEOUT }))) {
       throw new Error('Auth type select not found for fourth service');
     }
     await authTypeSelect4.selectOption('mock-signature-2x');
     
     const descriptionInput4 = localAppTab.locator('#new-service-description');
-    if (!(await descriptionInput4.isVisible({ timeout: 5000 }))) {
+    if (!(await descriptionInput4.isVisible({ timeout: DEFAULT_TIMEOUT }))) {
       throw new Error('Description input not found for fourth service');
     }
     await descriptionInput4.fill('Second mock signature service');
     
     const createBtn4 = localAppTab.locator('button', { hasText: 'Create Service' });
-    if (!(await createBtn4.isVisible({ timeout: 5000 }))) {
+    if (!(await createBtn4.isVisible({ timeout: DEFAULT_TIMEOUT }))) {
       throw new Error('Create Service button not found for fourth service');
     }
     await createBtn4.click();
@@ -680,31 +681,31 @@ test.describe('MetaMask Connection to Safe Global', () => {
     console.log('🔑 Creating Mock Auth Service 3...');
     
     const createServiceBtn5 = localAppTab.locator('button', { hasText: 'Create New Service' });
-    if (!(await createServiceBtn5.isVisible({ timeout: 5000 }))) {
+    if (!(await createServiceBtn5.isVisible({ timeout: DEFAULT_TIMEOUT }))) {
       throw new Error('Create New Service button not found for fifth service');
     }
     await createServiceBtn5.click();
     
     const serviceNameInput5 = localAppTab.locator('#new-service-name');
-    if (!(await serviceNameInput5.isVisible({ timeout: 5000 }))) {
+    if (!(await serviceNameInput5.isVisible({ timeout: DEFAULT_TIMEOUT }))) {
       throw new Error('Service name input not found for fifth service');
     }
     await serviceNameInput5.fill('Mock Auth Service 3');
     
     const authTypeSelect5 = localAppTab.locator('#new-service-auth-type');
-    if (!(await authTypeSelect5.isVisible({ timeout: 5000 }))) {
+    if (!(await authTypeSelect5.isVisible({ timeout: DEFAULT_TIMEOUT }))) {
       throw new Error('Auth type select not found for fifth service');
     }
     await authTypeSelect5.selectOption('mock-signature-2x');
     
     const descriptionInput5 = localAppTab.locator('#new-service-description');
-    if (!(await descriptionInput5.isVisible({ timeout: 5000 }))) {
+    if (!(await descriptionInput5.isVisible({ timeout: DEFAULT_TIMEOUT }))) {
       throw new Error('Description input not found for fifth service');
     }
     await descriptionInput5.fill('Third mock signature service');
     
     const createBtn5 = localAppTab.locator('button', { hasText: 'Create Service' });
-    if (!(await createBtn5.isVisible({ timeout: 5000 }))) {
+    if (!(await createBtn5.isVisible({ timeout: DEFAULT_TIMEOUT }))) {
       throw new Error('Create Service button not found for fifth service');
     }
     await createBtn5.click();
@@ -751,7 +752,7 @@ test.describe('MetaMask Connection to Safe Global', () => {
     
     // Navigate to backup tab
     const backupTabBtn = localAppTab.locator('nav button', { hasText: 'Backup' });
-    if (!(await backupTabBtn.isVisible({ timeout: 5000 }))) {
+    if (!(await backupTabBtn.isVisible({ timeout: DEFAULT_TIMEOUT }))) {
       throw new Error('Backup tab button not found');
     }
     await backupTabBtn.click();
@@ -761,7 +762,7 @@ test.describe('MetaMask Connection to Safe Global', () => {
     // Fill mock auth owner address field (shared by all mock services)
     console.log('🔑 Setting mock auth owner address...');
     const mockAuthOwnerInput = localAppTab.locator('[data-testid="mock-auth-owner-address"]');
-    if (!(await mockAuthOwnerInput.isVisible({ timeout: 5000 }))) {
+    if (!(await mockAuthOwnerInput.isVisible({ timeout: DEFAULT_TIMEOUT }))) {
       throw new Error('Mock auth owner address input not found');
     }
     await mockAuthOwnerInput.fill('2'); // First service gets owner "2"
@@ -769,7 +770,7 @@ test.describe('MetaMask Connection to Safe Global', () => {
     // Select Mock Auth Service (owner 2)
     console.log('🔑 Selecting Mock Auth Service with owner "2"...');
     const mockAuthSelectBtn = localAppTab.locator('[data-testid="service-select-mock-auth-service"]');
-    if (!(await mockAuthSelectBtn.isVisible({ timeout: 5000 }))) {
+    if (!(await mockAuthSelectBtn.isVisible({ timeout: DEFAULT_TIMEOUT }))) {
       throw new Error('Mock Auth Service Select button not found');
     }
     await mockAuthSelectBtn.click();
@@ -781,7 +782,7 @@ test.describe('MetaMask Connection to Safe Global', () => {
     // Select Mock Auth Service 2 (owner 3)
     console.log('🔑 Selecting Mock Auth Service 2 with owner "3"...');
     const mockAuth2SelectBtn = localAppTab.locator('[data-testid="service-select-mock-auth-service-2"]');
-    if (!(await mockAuth2SelectBtn.isVisible({ timeout: 5000 }))) {
+    if (!(await mockAuth2SelectBtn.isVisible({ timeout: DEFAULT_TIMEOUT }))) {
       throw new Error('Mock Auth Service 2 Select button not found');
     }
     await mockAuth2SelectBtn.click();
@@ -793,7 +794,7 @@ test.describe('MetaMask Connection to Safe Global', () => {
     // Select Mock Auth Service 3 (owner 123)
     console.log('🔑 Selecting Mock Auth Service 3 with owner "123"...');
     const mockAuth3SelectBtn = localAppTab.locator('[data-testid="service-select-mock-auth-service-3"]');
-    if (!(await mockAuth3SelectBtn.isVisible({ timeout: 5000 }))) {
+    if (!(await mockAuth3SelectBtn.isVisible({ timeout: DEFAULT_TIMEOUT }))) {
       throw new Error('Mock Auth Service 3 Select button not found');
     }
     await mockAuth3SelectBtn.click();
@@ -804,12 +805,12 @@ test.describe('MetaMask Connection to Safe Global', () => {
     // Find and click Create Backup button
     console.log('💾 Creating backup...');
     const createBackupBtn = localAppTab.locator('button', { hasText: 'Create Backup' });
-    if (!(await createBackupBtn.isVisible({ timeout: 5000 }))) {
+    if (!(await createBackupBtn.isVisible({ timeout: DEFAULT_TIMEOUT }))) {
       throw new Error('Create Backup button not found');
     }
     
     // Check if Create Backup button is enabled
-    if (!(await createBackupBtn.isEnabled({ timeout: 5000 }))) {
+    if (!(await createBackupBtn.isEnabled({ timeout: DEFAULT_TIMEOUT }))) {
       throw new Error('Create Backup button is not enabled - all services may not be selected properly');
     }
     
@@ -821,7 +822,7 @@ test.describe('MetaMask Connection to Safe Global', () => {
     
     // Wait for backup creation to complete and look for confirmation
     try {
-      await localAppTab.waitForSelector('text=Backup completed successfully!', { timeout: 10000 });
+      await localAppTab.waitForSelector('text=Backup completed successfully!', { timeout: DEFAULT_TIMEOUT });
       console.log('✓ Backup confirmation found');
     } catch (e) {
       // Take a screenshot for debugging if backup confirmation not found
@@ -879,7 +880,7 @@ test.describe('MetaMask Connection to Safe Global', () => {
     const maxAttempts = 10;
     
     while (backupCount === 0 && attempts < maxAttempts) {
-      await localAppTab.waitForTimeout(1000); // Wait 1 second between attempts
+      await localAppTab.waitForTimeout(DEFAULT_TIMEOUT); // Wait between attempts
       backupRadios = localAppTab.locator('input[type="radio"][name="backup"]');
       backupCount = await backupRadios.count();
       attempts++;
@@ -905,7 +906,7 @@ test.describe('MetaMask Connection to Safe Global', () => {
     // Fill mock auth owner address field and select Mock Auth Service (address 2, signature 4)
     console.log('🔑 Selecting Mock Auth Service with address 2, signature 4...');
     const mockAuthOwnerInput = localAppTab.locator('[data-testid="mock-auth-owner-address"]');
-    if (!(await mockAuthOwnerInput.isVisible({ timeout: 5000 }))) {
+    if (!(await mockAuthOwnerInput.isVisible({ timeout: DEFAULT_TIMEOUT }))) {
       throw new Error('Mock auth owner address input not found');
     }
     await mockAuthOwnerInput.fill('2'); // Address 2
@@ -916,7 +917,7 @@ test.describe('MetaMask Connection to Safe Global', () => {
     }
     
     const mockAuthSelectBtn = localAppTab.locator('[data-testid="mock-auth-service-authenticate-button"]');
-    if (!(await mockAuthSelectBtn.isVisible({ timeout: 5000 }))) {
+    if (!(await mockAuthSelectBtn.isVisible({ timeout: DEFAULT_TIMEOUT }))) {
       throw new Error('Mock Auth Service authenticate button not found');
     }
     await mockAuthSelectBtn.click();
@@ -931,7 +932,7 @@ test.describe('MetaMask Connection to Safe Global', () => {
     }
     
     const mockAuth2SelectBtn = localAppTab.locator('[data-testid="mock-auth-service-2-authenticate-button"]');
-    if (!(await mockAuth2SelectBtn.isVisible({ timeout: 5000 }))) {
+    if (!(await mockAuth2SelectBtn.isVisible({ timeout: DEFAULT_TIMEOUT }))) {
       throw new Error('Mock Auth Service 2 authenticate button not found');
     }
     await mockAuth2SelectBtn.click();
@@ -980,7 +981,7 @@ test.describe('MetaMask Connection to Safe Global', () => {
     
     // Wait for shards to load and click on shards from authenticated services
     console.log('🔍 Waiting for shards to load...');
-    await localAppTab.waitForTimeout(3000);
+    await localAppTab.waitForTimeout(DEFAULT_TIMEOUT);
     
     // Find and click shard checkboxes using the working generic approach
     console.log('🎯 Finding and clicking shard checkboxes...');
@@ -1084,7 +1085,7 @@ test.describe('MetaMask Connection to Safe Global', () => {
     
     try {
       // Use the working selector from debug output: text=Age:
-      await localAppTab.waitForSelector('text=Age:', { timeout: 10000 });
+      await localAppTab.waitForSelector('text=Age:', { timeout: DEFAULT_TIMEOUT });
       console.log('✓ Restore completion confirmed - found restored profile data');
     } catch (e) {
       console.log('⚠️ Restore completion verification failed - taking screenshot');

@@ -104,6 +104,89 @@ pnpm test:e2e:headed
 
 ---
 
+## 🛠️ Available Commands
+
+### 🚀 **Development Commands**
+
+```bash
+# Start all services in parallel development mode
+pnpm dev
+
+# Clean development start (removes cache first)
+pnpm dev:clean
+
+# Stop all development processes
+pnpm kill-dev
+```
+
+### 🏗️ **Build Commands**
+
+```bash
+# Build all packages
+pnpm build
+
+# Build only UI packages (library + UI)
+pnpm build:ui
+
+# Deploy build (alias for build:ui)
+pnpm deploy
+```
+
+### 🧪 **Test Commands**
+
+```bash
+# Run all tests across packages
+pnpm test
+
+# End-to-end tests with MetaMask integration
+pnpm test:e2e
+pnpm test:e2e:debug      # With debug mode
+pnpm test:e2e:headed     # With visible browser
+
+# App-only tests (skip MetaMask initialization)
+pnpm test:app-only       # Fast, reliable testing
+pnpm test:app-only:debug # With debug mode
+```
+
+### 🔧 **Utility Commands**
+
+```bash
+# Clean build artifacts and cache
+pnpm clean:cache
+
+# Kill processes on development ports
+pnpm kill-ports
+
+# Run linting across all packages
+pnpm lint
+```
+
+### 🐛 **DEBUG Environment Variable**
+
+The `DEBUG=true` environment variable enables Playwright debug mode with the following features:
+
+- **🖥️ Headed Mode**: Tests run with visible browser windows
+- **⏸️ Conditional Pauses**: Tests pause at strategic points for inspection using `await page.pause()`
+- **🔍 Enhanced Logging**: More detailed console output for debugging
+- **📸 Screenshot Capture**: Automatic screenshots on test failures
+
+**Usage Examples:**
+```bash
+# Debug app-only tests (recommended for development)
+DEBUG=true pnpm test:app-only
+
+# Debug with MetaMask integration
+DEBUG=true pnpm test:e2e
+
+# Or use the shorthand commands
+pnpm test:app-only:debug
+pnpm test:e2e:debug
+```
+
+**💡 Pro Tip**: Use `pnpm test:app-only:debug` for fastest debugging experience as it skips MetaMask initialization while still testing core functionality.
+
+---
+
 ## 📖 How It Works
 
 ### Current Workflow (Local Storage)
