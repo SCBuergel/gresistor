@@ -74,11 +74,6 @@ test.describe('MetaMask Connection to Safe Global', () => {
   });
 
   test('01 - Connect to Safe Global URL', async () => {
-    if (APP_ONLY) {
-      console.log('⚠️ Skipping Safe Global connection (APP_ONLY mode)');
-      test.skip();
-      return;
-    }
     
     console.log('🔗 Connecting to Safe Global...');
     
@@ -217,7 +212,7 @@ test.describe('MetaMask Connection to Safe Global', () => {
     console.log('\n=== TEST 02 - Verify localhost:3000 loads correctly ===');
     console.log('🏠 Verifying local app loads correctly...');
     
-    // Create context if not already created (for APP_ONLY mode)
+    // Create context if not already created
     if (!appContext) {
       appContext = await browser.newContext();
     }
