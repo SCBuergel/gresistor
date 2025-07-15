@@ -6,10 +6,8 @@ const UI_INTERACTION_DELAY = 500; // Delay in ms after UI interactions to allow 
 const UI_INTERACTION_DELAY_LONG = 2000; // Delay in ms after UI interactions to allow rendering, e.g. for Metamask popup
 const DEFAULT_TIMEOUT = 10000; // Default timeout in ms for all Playwright operations
 
-// Debug mode - set to true to enable page.pause() at the end of each test
-const DEBUG = process.env.DEBUG === 'true' || process.env.PWDEBUG === '1';
-const PAUSE_MODE = process.env.PAUSE_MODE === 'true';
-const APP_ONLY = process.env.APP_ONLY === 'true';
+// Pause mode - set to true to enable page.pause() at the end of each test
+const PAUSE = process.env.PAUSE === 'true';
 
 // MetaMask test configuration
 const TEST_MNEMONIC = 'zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo wrong';
@@ -20,15 +18,11 @@ test.describe('MetaMask Connection to Safe Global', () => {
   let appContext: BrowserContext;
 
   test.beforeAll(async ({ browser }) => {
-    if (APP_ONLY) {
-      console.log('📱 APP_ONLY mode: Creating regular browser context');
-      appContext = await browser.newContext();
-      console.log('✓ Regular browser context created for app-only testing');
-    }
+    // Initialize MetaMask and create app context
   });
 
   test.afterAll(async () => {
-    // Clean up context
+    console.log('🧤 Cleaning up MetaMask and app context');
     if (appContext) {
       await appContext.close();
       console.log('✓ App context cleaned up');
@@ -36,11 +30,7 @@ test.describe('MetaMask Connection to Safe Global', () => {
   });
 
   test('00 - Initialize MetaMask and connect to Safe Global', async ({ browser }) => {
-    if (APP_ONLY) {
-      console.log('⚠️ Skipping MetaMask initialization (APP_ONLY mode)');
-      test.skip();
-      return;
-    }
+    // Initialize MetaMask for all tests
     console.log('🦊 Testing MetaMask bootstrap and Safe Global connection...');
     
     try {
@@ -217,7 +207,7 @@ test.describe('MetaMask Connection to Safe Global', () => {
       throw new Error(`Error during wallet connection: ${error.message}`);
     }
     
-    if (DEBUG) await safeTab.pause();
+    if (PAUSE) await safeTab.pause();
     
     // Keep the Safe Global tab open for the next test
     console.log('✅ Safe Global connection test completed - tab remains open');
@@ -252,7 +242,7 @@ test.describe('MetaMask Connection to Safe Global', () => {
     await localAppTab.waitForSelector('body', { timeout: DEFAULT_TIMEOUT });
     console.log('✓ Local app body element found');
     
-    if (DEBUG) {
+    if (PAUSE) {
       console.log('🔍 Debug mode: Pausing for inspection');
       await localAppTab.pause();
     }
@@ -460,7 +450,7 @@ test.describe('MetaMask Connection to Safe Global', () => {
     console.log('✓ Shamir configuration: 2-of-3');
     console.log('✓ Services: No Auth (address 1), Mock Auth (address 123), Safe Auth (Safe address)');
     
-    if (DEBUG) {
+    if (PAUSE) {
       console.log('🔍 Debug mode: Config tab open for inspection');
       await localAppTab.pause();
     }
@@ -601,7 +591,7 @@ test.describe('MetaMask Connection to Safe Global', () => {
       throw new Error('Backup creation confirmation not found - check backup-creation-debug.png');
     }
     
-    if (DEBUG) {
+    if (PAUSE) {
       console.log('🔍 Debug mode: Pausing for backup inspection');
       await localAppTab.pause();
     }
@@ -718,7 +708,7 @@ test.describe('MetaMask Connection to Safe Global', () => {
     await expect(localAppTab.locator('td', { hasText: 'Mock Auth Service 2' })).toBeVisible();
     await expect(localAppTab.locator('td', { hasText: 'Mock Auth Service 3' })).toBeVisible();
     
-    if (DEBUG) {
+    if (PAUSE) {
       console.log('🔍 Debug mode: Pausing for inspection');
       await localAppTab.pause();
     }
@@ -830,7 +820,7 @@ test.describe('MetaMask Connection to Safe Global', () => {
       throw new Error('Backup creation confirmation not found - check backup-creation-debug.png');
     }
     
-    if (DEBUG) {
+    if (PAUSE) {
       console.log('🔍 Debug mode: Pausing for backup inspection');
       await localAppTab.pause();
     }
@@ -1083,7 +1073,7 @@ test.describe('MetaMask Connection to Safe Global', () => {
       throw new Error('Restore completion verification failed - check restore-debug.png');
     }
     
-    if (DEBUG) {
+    if (PAUSE) {
       console.log('🔍 Debug mode: Pausing for restore inspection');
       await localAppTab.pause();
     }
@@ -1290,7 +1280,7 @@ test.describe('MetaMask Connection to Safe Global', () => {
       throw new Error('Restore completion verification failed - check restore-other-backup-debug.png');
     }
     
-    if (DEBUG) {
+    if (PAUSE) {
       console.log('🔍 Debug mode: Pausing for restore inspection');
       await localAppTab.pause();
     }
@@ -1782,7 +1772,7 @@ test.describe('MetaMask Connection to Safe Global', () => {
       throw new Error('Restore completion verification failed - check restore-other-backup-debug.png');
     }
     
-    if (DEBUG) {
+    if (PAUSE) {
       console.log('🔍 Debug mode: Pausing for restore inspection');
       await localAppTab.pause();
     }

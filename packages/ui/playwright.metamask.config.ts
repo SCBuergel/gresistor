@@ -32,7 +32,7 @@ export default defineConfig({
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry',
     
-    /* Always run headed for MetaMask tests to see the wallet interaction */
+    /* Always run headed for MetaMask tests */
     headless: false,
   },
 

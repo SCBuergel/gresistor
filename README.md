@@ -92,14 +92,11 @@ pnpm run deploy
 ### Testing
 
 ```bash
-# Run end-to-end tests (headless, fast)
-pnpm test:e2e
+# Run end-to-end tests with MetaMask integration
+pnpm test
 
-# Run with debug mode (conditional pauses)
-pnpm test:e2e:debug
-
-# Run with visible browser window
-pnpm test:e2e:headed
+# Run with pause mode (pauses at strategic points for inspection)
+pnpm test:pause
 ```
 
 ---
@@ -135,17 +132,11 @@ pnpm deploy
 ### 🧪 **Test Commands**
 
 ```bash
-# Run all tests across packages
+# Run end-to-end tests with MetaMask integration
 pnpm test
 
-# End-to-end tests with MetaMask integration
-pnpm test:e2e
-pnpm test:e2e:debug      # With debug mode
-pnpm test:e2e:headed     # With visible browser
-
-# App-only tests (skip MetaMask initialization)
-pnpm test:app-only       # Fast, reliable testing
-pnpm test:app-only:debug # With debug mode
+# Run with pause mode (pauses at strategic points for inspection)
+pnpm test:pause
 ```
 
 ### 🔧 **Utility Commands**
@@ -161,29 +152,21 @@ pnpm kill-ports
 pnpm lint
 ```
 
-### 🐛 **DEBUG Environment Variable**
+### ⏸️ **PAUSE Mode**
 
-The `DEBUG=true` environment variable enables Playwright debug mode with the following features:
+The `PAUSE=true` environment variable enables test pause mode with the following features:
 
-- **🖥️ Headed Mode**: Tests run with visible browser windows
-- **⏸️ Conditional Pauses**: Tests pause at strategic points for inspection using `await page.pause()`
-- **🔍 Enhanced Logging**: More detailed console output for debugging
+- **⏸️ Strategic Pauses**: Tests pause at key points for inspection using `await page.pause()`
+- **🔍 Enhanced Debugging**: Allows manual inspection of test state
 - **📸 Screenshot Capture**: Automatic screenshots on test failures
 
-**Usage Examples:**
+**Usage:**
 ```bash
-# Debug app-only tests (recommended for development)
-DEBUG=true pnpm test:app-only
-
-# Debug with MetaMask integration
-DEBUG=true pnpm test:e2e
-
-# Or use the shorthand commands
-pnpm test:app-only:debug
-pnpm test:e2e:debug
+# Run tests with pause mode
+pnpm test:pause
 ```
 
-**💡 Pro Tip**: Use `pnpm test:app-only:debug` for fastest debugging experience as it skips MetaMask initialization while still testing core functionality.
+**💡 Pro Tip**: Use pause mode when you need to inspect test execution or debug test failures.
 
 ---
 
