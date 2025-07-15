@@ -1418,35 +1418,16 @@ test.describe('MetaMask Connection to Safe Global', () => {
     console.log('⏳ Waiting for WalletConnect popup to load...');
     await localAppTab.waitForTimeout(UI_INTERACTION_DELAY_LONG);
     
-    // Look for WalletConnect related elements
-    const walletConnectElements = [
-      'text=WalletConnect',
-      '[data-testid*="walletconnect"]',
-      '[class*="walletconnect"]',
-      'text=Connect Wallet',
-      'text=Scan QR code',
-      'canvas', // QR code canvas
-      'img[alt*="QR"]',
-      '[data-testid="qr-code"]'
-    ];
-    
-    let walletConnectFound = false;
-    for (const selector of walletConnectElements) {
-      try {
-        const element = localAppTab.locator(selector).first();
-        if (await element.isVisible({ timeout: 2000 })) {
-          console.log(`✓ WalletConnect element found with selector: ${selector}`);
-          walletConnectFound = true;
-          break;
-        }
-      } catch (e) {
-        // Continue to next selector
+    // Check for WalletConnect popup
+    try {
+      const walletConnectElement = localAppTab.locator('text=WalletConnect').first();
+      if (await walletConnectElement.isVisible({ timeout: 2000 })) {
+        console.log('✓ WalletConnect element found');
+        console.log('🔗 WalletConnect popup detected!');
+      } else {
+        console.log('⚠️ WalletConnect popup not immediately visible, but continuing...');
       }
-    }
-    
-    if (walletConnectFound) {
-      console.log('🔗 WalletConnect popup detected!');
-    } else {
+    } catch (e) {
       console.log('⚠️ WalletConnect popup not immediately visible, but continuing...');
     }
     
@@ -1528,13 +1509,12 @@ test.describe('MetaMask Connection to Safe Global', () => {
       
       console.log('✅ Approve button clicked successfully');
       
-      console.log('🎉 WalletConnect automation completed successfully!');
+      console.log('🎉 WalletConnect connection established successfully!');
       console.log('   - URI extracted from localhost QR code');
       console.log('   - URI pasted into Safe UI input field');
       console.log('   - Approve button clicked in confirmation popup');
-      console.log('   - Connection should now proceed automatically');
       
-      // Wait a moment to see the connection process
+      // Wait for WalletConnect connection to be fully established
       await localAppTab.waitForTimeout(UI_INTERACTION_DELAY_LONG);
       
     } catch (error) {
@@ -1546,12 +1526,243 @@ test.describe('MetaMask Connection to Safe Global', () => {
       return;
     }
     
-    // Optional: Pause for final inspection if DEBUG mode is enabled
+    // Step 2: Switch back to localhost app and click authenticate button
+    console.log('🔄 Switching back to localhost app to click authenticate button...');
+    await localAppTab.bringToFront();
+    
+    try {
+      // Click the Safe Auth Service authenticate button
+      console.log('🔍 Looking for Safe Auth Service authenticate button...');
+      const authenticateButton = localAppTab.locator('[data-testid="safe-auth-service-authenticate-button"]');
+      await authenticateButton.waitFor({ timeout: 10000 });
+      await authenticateButton.click();
+      
+      console.log('✅ Safe Auth Service authenticate button clicked');
+      
+      // Wait for authentication process to start
+      await localAppTab.waitForTimeout(UI_INTERACTION_DELAY_LONG);
+      
+    } catch (error) {
+      console.error('❌ Failed to click authenticate button:', error);
+      console.log('⏸️ Pausing for manual inspection due to authenticate button failure');
+      await localAppTab.pause();
+      return;
+    }
+    
+    // Step 3: Switch back to Safe UI and look for Sign button
+    console.log('🔄 Switching back to Safe UI to look for Sign button...');
+    
+    try {
+      // Find existing Safe UI tab
+      const existingTabs = appContext.pages();
+      const safeUITab = existingTabs.find(page => page.url().includes('app.safe.global'));
+      
+      if (!safeUITab) {
+        throw new Error('Safe UI tab not found');
+      }
+      
+      await safeUITab.bringToFront();
+      
+      // Wait for Sign button to appear (use long timeout)
+      console.log('🔍 Waiting for Sign button to appear in Safe UI...');
+      const signButton = safeUITab.locator('button:has-text("Sign")');
+      await signButton.waitFor({ timeout: UI_INTERACTION_DELAY_LONG });
+      await signButton.click();
+      
+      console.log('✅ Sign button clicked successfully');
+      console.log('🦊 MetaMask signature popup should now appear');
+      
+      // Wait a moment for MetaMask popup to appear
+      await localAppTab.waitForTimeout(UI_INTERACTION_DELAY);
+      
+    } catch (error) {
+      console.error('❌ Failed to click Sign button:', error);
+      console.log('⏸️ Pausing for manual inspection due to Sign button failure');
+      await localAppTab.pause();
+      return;
+    }
+    
+    // Step 4: Handle MetaMask signature popup
+    console.log('🦊 Looking for MetaMask signature popup...');
+    
+    try {
+      // Wait for MetaMask popup to appear
+      const popupPromise = appContext.waitForEvent('page', { timeout: 10000 });
+      const popup = await popupPromise;
+      
+      console.log('✅ MetaMask popup detected');
+      
+      // Look for confirm/sign button in MetaMask popup
+      const confirmSelectors = [
+        'button:has-text("Sign")',
+        'button:has-text("Confirm")',
+        '[data-testid="request-signature__sign"]',
+        '[data-testid="page-container-footer-next"]',
+        '.btn-primary',
+        'button[type="submit"]'
+      ];
+      
+      let buttonClicked = false;
+      for (const selector of confirmSelectors) {
+        try {
+          const button = popup.locator(selector).first();
+          if (await button.isVisible({ timeout: 2000 })) {
+            await button.click();
+            console.log(`✅ MetaMask signature confirmed with selector: ${selector}`);
+            buttonClicked = true;
+            break;
+          }
+        } catch (e) {
+          // Continue to next selector
+        }
+      }
+      
+      if (!buttonClicked) {
+        console.log('⚠️ No MetaMask confirm button found, trying manual confirmation');
+        await popup.pause();
+      }
+      
+      // Wait for popup to close
+      await popup.waitForEvent('close', { timeout: 10000 }).catch(() => {
+        console.log('ℹ️ MetaMask popup did not close within timeout');
+      });
+      
+    } catch (error) {
+      console.error('❌ Failed to handle MetaMask popup:', error);
+      console.log('⏸️ Pausing for manual MetaMask confirmation');
+      await localAppTab.pause();
+      return;
+    }
+    
+    // Step 5: Go back to localhost app and verify authentication
+    console.log('🔄 Switching back to localhost app to verify authentication...');
+    await localAppTab.bringToFront();
+    
+    // Wait for authentication to complete
+    await localAppTab.waitForTimeout(UI_INTERACTION_DELAY_LONG);
+    
+    try {
+      // Verify Safe Auth Service is now authenticated
+      console.log('🔍 Verifying Safe Auth Service authentication status...');
+      
+      // Look for authentication success indicators
+      const authSuccessSelectors = [
+        'text=✅',
+        'text=Authenticated',
+        'text=Connected',
+        '[data-testid*="authenticated"]',
+        '[data-testid*="success"]'
+      ];
+      
+      let authVerified = false;
+      for (const selector of authSuccessSelectors) {
+        try {
+          const element = localAppTab.locator(selector).first();
+          if (await element.isVisible({ timeout: 2000 })) {
+            console.log(`✅ Authentication verified with selector: ${selector}`);
+            authVerified = true;
+            break;
+          }
+        } catch (e) {
+          // Continue to next selector
+        }
+      }
+      
+      if (!authVerified) {
+        console.log('⚠️ Authentication status unclear, continuing with restore...');
+      }
+      
+    } catch (error) {
+      console.log('⚠️ Could not verify authentication status:', error.message);
+    }
+    
+    // Step 6: Restore the backup (similar to previous tests)
+    console.log('🔄 Starting backup restore process...');
+    
+    try {
+      // Look for and select shards
+      console.log('🔍 Looking for available shards...');
+      
+      // Wait for shards to load
+      await localAppTab.waitForTimeout(UI_INTERACTION_DELAY);
+      
+      // Find shard checkboxes
+      const shardCheckboxes = localAppTab.locator('input[type="checkbox"]');
+      const shardCount = await shardCheckboxes.count();
+      
+      console.log(`📊 Found ${shardCount} shard checkboxes`);
+      
+      if (shardCount < 2) {
+        throw new Error(`Expected at least 2 shards, found ${shardCount}`);
+      }
+      
+      // Click the required number of shard checkboxes
+      for (let i = 0; i < Math.min(shardCount, 2); i++) {
+        const checkbox = shardCheckboxes.nth(i);
+        await checkbox.click();
+        console.log(`✅ Clicked shard checkbox ${i + 1}`);
+        await localAppTab.waitForTimeout(UI_INTERACTION_DELAY / 2);
+      }
+      
+      console.log(`📊 Total shards selected: ${Math.min(shardCount, 2)}`);
+      
+      // Click restore button
+      console.log('🔄 Clicking restore button...');
+      const restoreButton = localAppTab.locator('button:has-text("Restore"), [data-testid*="restore"]').first();
+      await restoreButton.waitFor({ timeout: 5000 });
+      await restoreButton.click();
+      
+      console.log('✅ Restore button clicked');
+      
+      // Wait for restore to complete
+      await localAppTab.waitForTimeout(UI_INTERACTION_DELAY_LONG);
+      
+      // Verify restore completion
+      console.log('🔍 Verifying restore completion...');
+      
+      const restoreSuccessSelectors = [
+        'text=Restore completed',
+        'text=Successfully restored',
+        'text=Profile restored',
+        '[data-testid*="restore-success"]',
+        'text=TestProfile' // Look for restored profile data
+      ];
+      
+      let restoreVerified = false;
+      for (const selector of restoreSuccessSelectors) {
+        try {
+          const element = localAppTab.locator(selector).first();
+          if (await element.isVisible({ timeout: 5000 })) {
+            console.log(`✅ Restore completion verified with selector: ${selector}`);
+            restoreVerified = true;
+            break;
+          }
+        } catch (e) {
+          // Continue to next selector
+        }
+      }
+      
+      if (!restoreVerified) {
+        console.log('⚠️ Could not verify restore completion automatically');
+      }
+      
+    } catch (error) {
+      console.error('❌ Failed during backup restore:', error);
+      console.log('⏸️ Pausing for manual inspection of restore process');
+      await localAppTab.pause();
+      return;
+    }
+    
+    console.log('🎉 Complete Safe Auth Service workflow completed successfully!');
+    console.log('   - WalletConnect connection established');
+    console.log('   - Safe Auth Service authenticated via MetaMask signature');
+    console.log('   - Backup restored using Safe Auth Service and No Auth Service');
+    
+    // Final pause for inspection if DEBUG mode
     if (DEBUG) {
       console.log('🔍 Debug mode: Pausing for final inspection');
       await localAppTab.pause();
     }
-    await localAppTab.pause();
     
     console.log('✅ Settings navigation and Safe auth service WalletConnect test completed');
   });

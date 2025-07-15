@@ -75,8 +75,9 @@ export class SIWESafeAuthService {
       throw new Error('No wallet connected. Call connectWallet() first.');
     }
 
-    const domain = 'gresistor.app'; // Your app domain
-    const uri = `https://${domain}`;
+    // Use localhost for development/test environment, production domain otherwise
+    const domain = window.location.hostname === 'localhost' ? 'localhost:3000' : 'https://scbuergel.github.io/gresistor';
+    const uri = window.location.hostname === 'localhost' ? `http://${domain}` : `https://${domain}`;
     const version = '1';
     const chainId = this.config.chainId;
     const nonce = this.generateNonce();
