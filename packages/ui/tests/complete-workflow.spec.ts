@@ -1641,6 +1641,15 @@ test.describe('MetaMask Connection to Safe Global', () => {
     await localAppTab.bringToFront();
     
     // Wait for authentication to complete
+    console.log('🔄 wait 1/5...');
+    await localAppTab.waitForTimeout(UI_INTERACTION_DELAY_LONG);
+    console.log('🔄 wait 2/5...');
+    await localAppTab.waitForTimeout(UI_INTERACTION_DELAY_LONG);
+    console.log('🔄 wait 3/5...');
+    await localAppTab.waitForTimeout(UI_INTERACTION_DELAY_LONG);
+    console.log('🔄 wait 4/5...');
+    await localAppTab.waitForTimeout(UI_INTERACTION_DELAY_LONG);
+    console.log('🔄 wait 5/5...');
     await localAppTab.waitForTimeout(UI_INTERACTION_DELAY_LONG);
     
     try {
@@ -1681,88 +1690,119 @@ test.describe('MetaMask Connection to Safe Global', () => {
     // Step 6: Restore the backup (similar to previous tests)
     console.log('🔄 Starting backup restore process...');
     
-    try {
-      // Look for and select shards
-      console.log('🔍 Looking for available shards...');
-      
-      // Wait for shards to load
-      await localAppTab.waitForTimeout(UI_INTERACTION_DELAY);
-      
-      // Find shard checkboxes
-      const shardCheckboxes = localAppTab.locator('input[type="checkbox"]');
-      const shardCount = await shardCheckboxes.count();
-      
-      console.log(`📊 Found ${shardCount} shard checkboxes`);
-      
-      if (shardCount < 2) {
-        throw new Error(`Expected at least 2 shards, found ${shardCount}`);
-      }
-      
-      // Click the required number of shard checkboxes
-      for (let i = 0; i < Math.min(shardCount, 2); i++) {
-        const checkbox = shardCheckboxes.nth(i);
-        await checkbox.click();
-        console.log(`✅ Clicked shard checkbox ${i + 1}`);
-        await localAppTab.waitForTimeout(UI_INTERACTION_DELAY / 2);
-      }
-      
-      console.log(`📊 Total shards selected: ${Math.min(shardCount, 2)}`);
-      
-      // Click restore button
-      console.log('🔄 Clicking restore button...');
-      const restoreButton = localAppTab.locator('button:has-text("Restore"), [data-testid*="restore"]').first();
-      await restoreButton.waitFor({ timeout: 5000 });
-      await restoreButton.click();
-      
-      console.log('✅ Restore button clicked');
-      
-      // Wait for restore to complete
-      await localAppTab.waitForTimeout(UI_INTERACTION_DELAY_LONG);
-      
-      // Verify restore completion
-      console.log('🔍 Verifying restore completion...');
-      
-      const restoreSuccessSelectors = [
-        'text=Restore completed',
-        'text=Successfully restored',
-        'text=Profile restored',
-        '[data-testid*="restore-success"]',
-        'text=TestProfile' // Look for restored profile data
-      ];
-      
-      let restoreVerified = false;
-      for (const selector of restoreSuccessSelectors) {
-        try {
-          const element = localAppTab.locator(selector).first();
-          if (await element.isVisible({ timeout: 5000 })) {
-            console.log(`✅ Restore completion verified with selector: ${selector}`);
-            restoreVerified = true;
-            break;
-          }
-        } catch (e) {
-          // Continue to next selector
+    await localAppTab.waitForTimeout(UI_INTERACTION_DELAY);
+
+    // Select required shards (at least 2)
+    console.log('🔍 Selecting required shards...');
+    const shardCheckboxes = localAppTab.locator('input[type="checkbox"]');
+    const checkboxCount = await shardCheckboxes.count();
+    console.log(`📊 Found ${checkboxCount} shard checkboxes`);
+    
+    await localAppTab.waitForTimeout(UI_INTERACTION_DELAY);
+    let shardsClicked = 0;
+    for (let i = 0; i < checkboxCount && shardsClicked < 2; i++) {
+      const checkbox = shardCheckboxes.nth(i);
+      if (await checkbox.isVisible({ timeout: 2000 })) {
+        const isChecked = await checkbox.isChecked();
+        if (!isChecked) {
+          await checkbox.click();
+          shardsClicked++;
+          console.log(`✓ Clicked shard checkbox ${i + 1}`);
+          await localAppTab.waitForTimeout(UI_INTERACTION_DELAY);
+        } else {
+          shardsClicked++;
+          console.log(`✓ Shard checkbox ${i + 1} already selected`);
         }
+        if (shardsClicked >= 2) break;
       }
-      
-      if (!restoreVerified) {
-        console.log('⚠️ Could not verify restore completion automatically');
-      }
-      
-    } catch (error) {
-      console.error('❌ Failed during backup restore:', error);
-      console.log('⏸️ Pausing for manual inspection of restore process');
-      await localAppTab.pause();
-      return;
     }
     
-    console.log('🎉 Complete Safe Auth Service workflow completed successfully!');
-    console.log('   - WalletConnect connection established');
-    console.log('   - Safe Auth Service authenticated via MetaMask signature');
-    console.log('   - Backup restored using Safe Auth Service and No Auth Service');
+    console.log(`📊 Total shards selected: ${shardsClicked}`);
     
-    // Final pause for inspection if DEBUG mode
+    if (shardsClicked === 0) {
+      throw new Error('No shard checkboxes found or clicked - cannot proceed with restore');
+    }
+    
+    // Verify exactly 2 checkboxes are actually checked on the page
+    console.log('🔍 Verifying checkbox states...');
+    const checkedBoxes = localAppTab.locator('input[type="checkbox"]:checked');
+    const actualCheckedCount = await checkedBoxes.count();
+    console.log(`📊 Actually checked checkboxes on page: ${actualCheckedCount}`);
+    
+    if (actualCheckedCount !== 2) {
+      console.log('❌ Expected exactly 2 checkboxes to be checked, but found:', actualCheckedCount);
+      
+      // Take comprehensive screenshots for debugging
+      console.log('📸 Taking screenshots for debugging...');
+      
+      // Scroll to top first
+      await localAppTab.evaluate(() => window.scrollTo(0, 0));
+      await localAppTab.waitForTimeout(500);
+      await localAppTab.screenshot({ path: 'test-results/checkbox-error-top.png', fullPage: false });
+      
+      // Scroll to middle
+      await localAppTab.evaluate(() => window.scrollTo(0, document.body.scrollHeight / 2));
+      await localAppTab.waitForTimeout(500);
+      await localAppTab.screenshot({ path: 'test-results/checkbox-error-middle.png', fullPage: false });
+      
+      // Scroll to bottom
+      await localAppTab.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+      await localAppTab.waitForTimeout(500);
+      await localAppTab.screenshot({ path: 'test-results/checkbox-error-bottom.png', fullPage: false });
+      
+      // Take a full page screenshot
+      await localAppTab.screenshot({ path: 'test-results/checkbox-error-fullpage.png', fullPage: true });
+      
+      console.log('📸 Screenshots saved to test-results/ folder');
+      
+      // Log details of all checkboxes for debugging
+      const allCheckboxes = localAppTab.locator('input[type="checkbox"]');
+      const totalCheckboxes = await allCheckboxes.count();
+      console.log(`📊 Total checkboxes found: ${totalCheckboxes}`);
+      
+      for (let i = 0; i < totalCheckboxes; i++) {
+        const checkbox = allCheckboxes.nth(i);
+        const isChecked = await checkbox.isChecked();
+        const isVisible = await checkbox.isVisible();
+        console.log(`  Checkbox ${i + 1}: checked=${isChecked}, visible=${isVisible}`);
+      }
+      
+      throw new Error(`Expected exactly 2 checkboxes to be checked, but found ${actualCheckedCount}`);
+    }
+    
+    console.log('✅ Verified: exactly 2 checkboxes are checked');
+    
+    await localAppTab.waitForTimeout(UI_INTERACTION_DELAY);
+
+    // Find and click Restore button
+    console.log('🔄 Restoring backup...');
+    const restoreBtn = localAppTab.locator('button', { hasText: 'Restore' }).last();
+    if (!(await restoreBtn.isVisible({ timeout: 5000 }))) {
+      throw new Error('Restore button not found');
+    }
+    
+    // Check if Restore button is enabled
+    if (!(await restoreBtn.isEnabled({ timeout: 5000 }))) {
+      throw new Error('Restore button is not enabled - required services may not be selected properly');
+    }
+    
+    await restoreBtn.click();
+    console.log('✓ Restore button clicked');
+    
+    // Verify restore was successful
+    console.log('🔍 Verifying restore completion...');
+    
+    try {
+      // Use the working selector: text=Age:
+      await localAppTab.waitForSelector('text=Age:', { timeout: DEFAULT_TIMEOUT });
+      console.log('✓ Restore completion confirmed - found restored profile data');
+    } catch (e) {
+      await localAppTab.screenshot({ path: 'restore-other-backup-debug.png' });
+      throw new Error('Restore completion verification failed - check restore-other-backup-debug.png');
+    }
+    
     if (DEBUG) {
-      console.log('🔍 Debug mode: Pausing for final inspection');
+      console.log('🔍 Debug mode: Pausing for restore inspection');
       await localAppTab.pause();
     }
     await localAppTab.pause();
