@@ -1378,21 +1378,9 @@ test.describe('MetaMask Connection to Safe Global', () => {
     // Wait a moment for the form to update
     await localAppTab.waitForTimeout(UI_INTERACTION_DELAY);
     
-    // Select WalletConnect radio button
-    console.log('📡 Selecting WalletConnect radio button...');
-    const walletConnectRadio = localAppTab.locator('input[type="radio"][value="walletconnect"], input[type="radio"] + label:has-text("WalletConnect"), label:has-text("WalletConnect") input[type="radio"]').first();
-    if (!(await walletConnectRadio.isVisible({ timeout: DEFAULT_TIMEOUT }))) {
-      throw new Error('WalletConnect radio button not found');
-    }
-    await walletConnectRadio.click();
-    console.log('✓ WalletConnect radio button selected');
-    
-    // Wait for UI to update after radio selection
-    await localAppTab.waitForTimeout(UI_INTERACTION_DELAY);
-    
-    // Find and click the button underneath the WalletConnect radio
+    // Find and click the WalletConnect button (no radio selection needed)
     console.log('🔘 Clicking WalletConnect button...');
-    const walletConnectBtn = localAppTab.locator('button:has-text("Connect"), button:has-text("WalletConnect"), button:has-text("Connect Wallet")').first();
+    const walletConnectBtn = localAppTab.locator('button:has-text("Connect WalletConnect")');
     if (!(await walletConnectBtn.isVisible({ timeout: DEFAULT_TIMEOUT }))) {
       throw new Error('WalletConnect button not found');
     }

@@ -69,7 +69,6 @@ export default function RestoreComponent({ shamirConfig, keyShardStorageBackend,
     rpcProvider: 'https://rpc.gnosischain.com'
   })
   const [isWalletConnected, setIsWalletConnected] = useState(false)
-  const [selectedWalletType, setSelectedWalletType] = useState<'injected' | 'walletconnect'>('injected')
   const [connectedAddress, setConnectedAddress] = useState<string>('')
   const [safeAuthService, setSafeAuthService] = useState<SafeAuthService | null>(null)
   const [siweAuthService, setSiweAuthService] = useState<SIWESafeAuthService | null>(null)
@@ -202,7 +201,7 @@ export default function RestoreComponent({ shamirConfig, keyShardStorageBackend,
   // Secure wallet connection with Safe owner validation
   const connectWallet = async () => {
     try {
-      console.log(`🔗 Connecting ${selectedWalletType} wallet...`)
+      console.log('🔗 Connecting WalletConnect wallet...')
       console.log('🔍 DEBUG: Current Safe addresses:')
       console.log('  - siweConfig.safeAddress:', siweConfig.safeAddress)
       console.log('  - safeConfig.safeAddress:', safeConfig.safeAddress)
@@ -218,17 +217,17 @@ export default function RestoreComponent({ shamirConfig, keyShardStorageBackend,
       
       const freshSiweService = new SIWESafeAuthService(currentSafeConfig, walletConnectProjectId)
       
-      const address = await freshSiweService.connectWallet(selectedWalletType)
+      const address = await freshSiweService.connectWallet('walletconnect')
       setConnectedAddress(address)
       setIsWalletConnected(true)
       
       // Store the connected service for later use in authentication
       setConnectedSiweService(freshSiweService)
       
-      console.log(`✅ ${selectedWalletType} wallet connected: ${address}`)
+      console.log('✅ WalletConnect wallet connected:', address)
       return address
     } catch (error) {
-      console.error(`Failed to connect ${selectedWalletType} wallet:`, error)
+      console.error('Failed to connect WalletConnect wallet:', error)
       throw error
     }
   }
@@ -630,38 +629,16 @@ export default function RestoreComponent({ shamirConfig, keyShardStorageBackend,
                 <div style={{ marginBottom: '10px' }}>
                   {!isWalletConnected ? (
                     <div>
-                      <div style={{ marginBottom: '10px' }}>
-                        <label style={{ marginRight: '10px' }}>
-                          <input
-                            type="radio"
-                            value="injected"
-                            checked={selectedWalletType === 'injected'}
-                            onChange={(e) => setSelectedWalletType(e.target.value as 'injected' | 'walletconnect')}
-                            style={{ marginRight: '5px' }}
-                          />
-                          Injected Wallet (MetaMask, etc.)
-                        </label>
-                        <label>
-                          <input
-                            type="radio"
-                            value="walletconnect"
-                            checked={selectedWalletType === 'walletconnect'}
-                            onChange={(e) => setSelectedWalletType(e.target.value as 'injected' | 'walletconnect')}
-                            style={{ marginRight: '5px' }}
-                          />
-                          WalletConnect
-                        </label>
-                      </div>
                       <button 
                         onClick={async () => {
                           try {
                             await connectWallet()
                           } catch (error) {
-                            alert(`Failed to connect ${selectedWalletType} wallet: ${error instanceof Error ? error.message : 'Unknown error'}`)
+                            alert(`Failed to connect WalletConnect: ${error instanceof Error ? error.message : 'Unknown error'}`)
                           }
                         }}
                       >
-                        Connect {selectedWalletType === 'walletconnect' ? 'WalletConnect' : 'Injected Wallet'}
+                        Connect WalletConnect
                       </button>
                     </div>
                   ) : (
