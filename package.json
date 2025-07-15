@@ -19,7 +19,8 @@
     "deploy": "pnpm run build:ui",
     "test": "pnpm --filter @gresistor/ui test:metamask",
     "test:pause": "PAUSE=true pnpm --filter @gresistor/ui test:metamask",
-    "lint": "pnpm -r lint"
+    "lint": "pnpm -r lint",
+    "postinstall": "pnpm --filter @gresistor/ui exec playwright install chromium"
   },
   "keywords": ["backup", "encryption", "shamir-secret-sharing", "blockchain"],
   "author": "",

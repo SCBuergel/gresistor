@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "test:metamask": "playwright test --config=playwright.metamask.config.ts",
-    "test:metamask:pause": "PAUSE=true playwright test --config=playwright.metamask.config.ts"
+    "test:metamask:pause": "PAUSE=true playwright test --config=playwright.metamask.config.ts",
+    "postinstall": "playwright install chromium"
   },
   "dependencies": {
     "@gresistor/library": "workspace:*",

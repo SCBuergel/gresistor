@@ -91,6 +91,17 @@ pnpm run deploy
 
 ### Testing
 
+#### Setup
+
+Playwright browsers are automatically installed when you run:
+
+```bash
+# Install all dependencies (includes Playwright browsers)
+pnpm install
+```
+
+#### Running Tests
+
 ```bash
 # Run end-to-end tests with MetaMask integration
 pnpm test
@@ -98,6 +109,13 @@ pnpm test
 # Run with pause mode (pauses at strategic points for inspection)
 pnpm test:pause
 ```
+
+#### Troubleshooting
+
+**If tests fail with browser launch errors:**
+- Try manually reinstalling Chromium: `pnpm exec playwright install chromium`
+- Check that you're running on a system that supports headed browsers (tests require GUI)
+- Ensure you have sufficient disk space for browser installation
 
 ---
 
