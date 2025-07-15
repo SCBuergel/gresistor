@@ -14,6 +14,7 @@
     "test:metamask": "playwright test --config=playwright.metamask.config.ts",
     "test:metamask:debug": "DEBUG=true playwright test --config=playwright.metamask.config.ts",
     "test:app-only": "APP_ONLY=true playwright test",
+    "test:app-only:headed": "APP_ONLY=true playwright test --headed",
     "test:app-only:debug": "APP_ONLY=true DEBUG=true playwright test"
   },
   "dependencies": {

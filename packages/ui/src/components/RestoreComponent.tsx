@@ -43,6 +43,14 @@ const CHAIN_OPTIONS = [
 ]
 
 export default function RestoreComponent({ shamirConfig, keyShardStorageBackend, encryptedDataStorage, safeConfig }: RestoreComponentProps) {
+  // Get WalletConnect Project ID from Vite environment
+  const walletConnectProjectId = (import.meta as any).env.VITE_WALLETCONNECT_PROJECT_ID
+  
+  console.log('🔑 WalletConnect Project ID:', walletConnectProjectId)
+  if (!walletConnectProjectId) {
+    console.error('❌ WalletConnect Project ID is undefined! Check your .env file.')
+  }
+
   const [availableBackups, setAvailableBackups] = useState<StoredBackup[]>([])
   const [encryptedBlobHash, setEncryptedBlobHash] = useState<string>('')
   const [activeServices, setActiveServices] = useState<Array<{name: string, createdAt: Date}>>([])
@@ -105,10 +113,6 @@ export default function RestoreComponent({ shamirConfig, keyShardStorageBackend,
       setSafeAuthService(authService)
       
       // Initialize SIWE Safe Auth Service with WalletConnect Project ID
-      console.log('🔍 Debug environment variables:')
-      console.log('  - process.env.REACT_APP_WALLETCONNECT_PROJECT_ID:', process.env.REACT_APP_WALLETCONNECT_PROJECT_ID)
-      console.log('  - process.env.VITE_WALLETCONNECT_PROJECT_ID:', process.env.VITE_WALLETCONNECT_PROJECT_ID)
-      console.log('  - Full process.env:', process.env)
       
       // Debug Safe configuration
       console.log('🔍 Debug Safe configuration:')
@@ -124,22 +128,18 @@ export default function RestoreComponent({ shamirConfig, keyShardStorageBackend,
       }
       console.log('🔧 Using Safe config for authentication:', actualSafeConfig)
       
-      // Get WalletConnect Project ID from environment variables (Vite style)
-      const walletConnectProjectId = (import.meta as any).env?.VITE_WALLETCONNECT_PROJECT_ID || (import.meta as any).env?.REACT_APP_WALLETCONNECT_PROJECT_ID || process.env.VITE_WALLETCONNECT_PROJECT_ID || process.env.REACT_APP_WALLETCONNECT_PROJECT_ID
+      // Get WalletConnect Project ID from Vite environment
+      const authWalletConnectProjectId = (import.meta as any).env.VITE_WALLETCONNECT_PROJECT_ID
       
-      console.log('🔍 Debug environment variables:')
-      console.log('  - import.meta.env.VITE_WALLETCONNECT_PROJECT_ID:', (import.meta as any).env.VITE_WALLETCONNECT_PROJECT_ID)
-      console.log('  - import.meta.env.REACT_APP_WALLETCONNECT_PROJECT_ID:', (import.meta as any).env.REACT_APP_WALLETCONNECT_PROJECT_ID)
-      
-      if (!walletConnectProjectId) {
+      if (!authWalletConnectProjectId) {
         console.error('❌ WalletConnect Project ID not found in environment variables')
         console.error('Please set VITE_WALLETCONNECT_PROJECT_ID in your .env file')
         return
       }
       
-      console.log('🔧 Initializing SIWESafeAuthService with Project ID:', walletConnectProjectId)
+      console.log('🔧 Initializing SIWESafeAuthService with Project ID:', authWalletConnectProjectId)
       
-      const siweService = new SIWESafeAuthService(actualSafeConfig, walletConnectProjectId)
+      const siweService = new SIWESafeAuthService(actualSafeConfig, authWalletConnectProjectId)
       setSiweAuthService(siweService)
     }
   }, [safeConfig, siweConfig.safeAddress])
@@ -223,7 +223,7 @@ export default function RestoreComponent({ shamirConfig, keyShardStorageBackend,
       }
       console.log('🔧 Creating fresh SIWESafeAuthService with current Safe address:', currentSafeConfig.safeAddress)
       
-      const walletConnectProjectId = (import.meta as any).env?.VITE_WALLETCONNECT_PROJECT_ID || (import.meta as any).env?.REACT_APP_WALLETCONNECT_PROJECT_ID || process.env.VITE_WALLETCONNECT_PROJECT_ID || process.env.REACT_APP_WALLETCONNECT_PROJECT_ID
+      const walletConnectProjectId = (import.meta as any).env.VITE_WALLETCONNECT_PROJECT_ID
       
       if (!walletConnectProjectId) {
         throw new Error('WalletConnect Project ID not found in environment variables. Please set VITE_WALLETCONNECT_PROJECT_ID in your .env file')
@@ -592,6 +592,7 @@ export default function RestoreComponent({ shamirConfig, keyShardStorageBackend,
                     <label>
                       Safe Address:
                       <input
+                        data-testid="safe-auth-owner-address"
                         type="text"
                         value={siweConfig.safeAddress}
                         onChange={(e) => setSiweConfig(prev => ({ ...prev, safeAddress: e.target.value }))}

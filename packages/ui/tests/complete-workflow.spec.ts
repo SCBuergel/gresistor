@@ -1178,13 +1178,16 @@ test.describe('MetaMask Connection to Safe Global', () => {
     }
     await mockAuthSelectBtn.click();
     console.log('✓ Mock Auth Service selected with address "123", signature "246"');
-    
+
+    await localAppTab.waitForTimeout(UI_INTERACTION_DELAY);
+
     // Select required shards (at least 2)
     console.log('🔍 Selecting required shards...');
     const shardCheckboxes = localAppTab.locator('input[type="checkbox"]');
     const checkboxCount = await shardCheckboxes.count();
     console.log(`📊 Found ${checkboxCount} shard checkboxes`);
     
+    await localAppTab.waitForTimeout(UI_INTERACTION_DELAY);
     let shardsClicked = 0;
     for (let i = 0; i < checkboxCount && shardsClicked < 2; i++) {
       const checkbox = shardCheckboxes.nth(i);
@@ -1194,6 +1197,7 @@ test.describe('MetaMask Connection to Safe Global', () => {
           await checkbox.click();
           shardsClicked++;
           console.log(`✓ Clicked shard checkbox ${i + 1}`);
+          await localAppTab.waitForTimeout(UI_INTERACTION_DELAY);
         } else {
           shardsClicked++;
           console.log(`✓ Shard checkbox ${i + 1} already selected`);
@@ -1208,6 +1212,57 @@ test.describe('MetaMask Connection to Safe Global', () => {
       throw new Error('No shard checkboxes found or clicked - cannot proceed with restore');
     }
     
+    // Verify exactly 2 checkboxes are actually checked on the page
+    console.log('🔍 Verifying checkbox states...');
+    const checkedBoxes = localAppTab.locator('input[type="checkbox"]:checked');
+    const actualCheckedCount = await checkedBoxes.count();
+    console.log(`📊 Actually checked checkboxes on page: ${actualCheckedCount}`);
+    
+    if (actualCheckedCount !== 2) {
+      console.log('❌ Expected exactly 2 checkboxes to be checked, but found:', actualCheckedCount);
+      
+      // Take comprehensive screenshots for debugging
+      console.log('📸 Taking screenshots for debugging...');
+      
+      // Scroll to top first
+      await localAppTab.evaluate(() => window.scrollTo(0, 0));
+      await localAppTab.waitForTimeout(500);
+      await localAppTab.screenshot({ path: 'test-results/checkbox-error-top.png', fullPage: false });
+      
+      // Scroll to middle
+      await localAppTab.evaluate(() => window.scrollTo(0, document.body.scrollHeight / 2));
+      await localAppTab.waitForTimeout(500);
+      await localAppTab.screenshot({ path: 'test-results/checkbox-error-middle.png', fullPage: false });
+      
+      // Scroll to bottom
+      await localAppTab.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+      await localAppTab.waitForTimeout(500);
+      await localAppTab.screenshot({ path: 'test-results/checkbox-error-bottom.png', fullPage: false });
+      
+      // Take a full page screenshot
+      await localAppTab.screenshot({ path: 'test-results/checkbox-error-fullpage.png', fullPage: true });
+      
+      console.log('📸 Screenshots saved to test-results/ folder');
+      
+      // Log details of all checkboxes for debugging
+      const allCheckboxes = localAppTab.locator('input[type="checkbox"]');
+      const totalCheckboxes = await allCheckboxes.count();
+      console.log(`📊 Total checkboxes found: ${totalCheckboxes}`);
+      
+      for (let i = 0; i < totalCheckboxes; i++) {
+        const checkbox = allCheckboxes.nth(i);
+        const isChecked = await checkbox.isChecked();
+        const isVisible = await checkbox.isVisible();
+        console.log(`  Checkbox ${i + 1}: checked=${isChecked}, visible=${isVisible}`);
+      }
+      
+      throw new Error(`Expected exactly 2 checkboxes to be checked, but found ${actualCheckedCount}`);
+    }
+    
+    console.log('✅ Verified: exactly 2 checkboxes are checked');
+    
+    await localAppTab.waitForTimeout(UI_INTERACTION_DELAY);
+
     // Find and click Restore button
     console.log('🔄 Restoring backup...');
     const restoreBtn = localAppTab.locator('button', { hasText: 'Restore' }).last();
@@ -1241,6 +1296,175 @@ test.describe('MetaMask Connection to Safe Global', () => {
     }
     
     console.log('✅ Other backup restored successfully using No Auth Service (address 1) and Mock Auth Service (address 123, signature 2)');
+  });
+
+  test('09 - Navigate to Settings and restore second backup with Safe auth service', async () => {
+    console.log('\n=== TEST 09 - Navigate to Settings and restore second backup with Safe auth service ===');
+    console.log('🔄 Testing settings navigation and Safe auth service restore...');
+    
+    // Reuse the existing localhost:3000 tab
+    const pages = await appContext.pages();
+    let localAppTab: any = null;
+    
+    // Find the existing localhost:3000 tab
+    for (const page of pages) {
+      const url = page.url();
+      if (url.includes('localhost:3000')) {
+        localAppTab = page;
+        break;
+      }
+    }
+    
+    if (!localAppTab) {
+      throw new Error('localhost:3000 tab not found');
+    }
+    
+    console.log('✓ Using existing local app tab');
+    
+    // Reset UI by clicking Backup tab first, then Restore tab
+    console.log('🔄 Resetting UI by clicking Backup tab...');
+    const backupTabBtn = localAppTab.locator('nav button', { hasText: 'Backup' });
+    if (!(await backupTabBtn.isVisible({ timeout: DEFAULT_TIMEOUT }))) {
+      throw new Error('Backup tab button not found');
+    }
+    await backupTabBtn.click();
+    await localAppTab.waitForTimeout(UI_INTERACTION_DELAY);
+    console.log('✓ Clicked Backup tab');
+    
+    // Navigate to Restore tab
+    console.log('📂 Navigating to Restore tab...');
+    const restoreTabBtn = localAppTab.locator('nav button', { hasText: 'Restore' });
+    if (!(await restoreTabBtn.isVisible({ timeout: DEFAULT_TIMEOUT }))) {
+      throw new Error('Restore tab button not found');
+    }
+    await restoreTabBtn.click();
+    await localAppTab.waitForTimeout(UI_INTERACTION_DELAY);
+    console.log('✓ Navigated to Restore tab');
+    
+    let backupRadios;
+    let backupCount = 0;
+    backupRadios = localAppTab.locator('input[type="radio"][name="backup"]');
+    backupCount = await backupRadios.count();
+    
+    if (backupCount === 0) {
+      throw new Error('No backup radio buttons found');
+    }
+    
+    console.log(`📊 Found ${backupCount} backup(s)`);
+    
+    // Select the second backup (index 1)
+    if (backupCount < 2) {
+      throw new Error('Second backup not found - need at least 2 backups');
+    }
+    
+    const secondBackupRadio = backupRadios.nth(1);
+    await secondBackupRadio.click();
+    console.log('✓ Selected second backup');
+    
+    // Wait for services to load
+    await localAppTab.waitForTimeout(UI_INTERACTION_DELAY);
+    
+    // Select No Auth Service with address "1"
+    console.log('🔑 Selecting No Auth Service with address "1"...');
+    const noAuthOwnerInput = localAppTab.locator('[data-testid="no-auth-owner-address"]');
+    if (!(await noAuthOwnerInput.isVisible({ timeout: DEFAULT_TIMEOUT }))) {
+      throw new Error('No Auth Service owner input not found');
+    }
+    await noAuthOwnerInput.fill('1'); // Address 1
+    
+    // Wait a moment for the form to update
+    await localAppTab.waitForTimeout(UI_INTERACTION_DELAY);
+    
+    const noAuthSelectBtn = localAppTab.locator('[data-testid="no-auth-service-authenticate-button"]');
+    if (!(await noAuthSelectBtn.isVisible({ timeout: DEFAULT_TIMEOUT }))) {
+      throw new Error('No Auth Service authenticate button not found');
+    }
+    await noAuthSelectBtn.click();
+    console.log('✓ No Auth Service selected with address "1"');
+    
+    // Select Safe Auth Service and attempt WalletConnect
+    console.log('🔐 Selecting Safe Auth Service and attempting WalletConnect...');
+    const safeAuthOwnerInput = localAppTab.locator('[data-testid="safe-auth-owner-address"]');
+    if (!(await safeAuthOwnerInput.isVisible({ timeout: DEFAULT_TIMEOUT }))) {
+      throw new Error('Safe Auth Service owner input not found');
+    }
+    await safeAuthOwnerInput.fill('0x4f4f1091Bf0F4b9F3c85031DDc4cf196653b18a0');
+    
+    // Wait a moment for the form to update
+    await localAppTab.waitForTimeout(UI_INTERACTION_DELAY);
+    
+    // Select WalletConnect radio button
+    console.log('📡 Selecting WalletConnect radio button...');
+    const walletConnectRadio = localAppTab.locator('input[type="radio"][value="walletconnect"], input[type="radio"] + label:has-text("WalletConnect"), label:has-text("WalletConnect") input[type="radio"]').first();
+    if (!(await walletConnectRadio.isVisible({ timeout: DEFAULT_TIMEOUT }))) {
+      throw new Error('WalletConnect radio button not found');
+    }
+    await walletConnectRadio.click();
+    console.log('✓ WalletConnect radio button selected');
+    
+    // Wait for UI to update after radio selection
+    await localAppTab.waitForTimeout(UI_INTERACTION_DELAY);
+    
+    // Find and click the button underneath the WalletConnect radio
+    console.log('🔘 Clicking WalletConnect button...');
+    const walletConnectBtn = localAppTab.locator('button:has-text("Connect"), button:has-text("WalletConnect"), button:has-text("Connect Wallet")').first();
+    if (!(await walletConnectBtn.isVisible({ timeout: DEFAULT_TIMEOUT }))) {
+      throw new Error('WalletConnect button not found');
+    }
+    await walletConnectBtn.click();
+    console.log('✓ WalletConnect button clicked');
+    
+    // Wait for WalletConnect popup to appear (long delay)
+    console.log('⏳ Waiting for WalletConnect popup to load...');
+    await localAppTab.waitForTimeout(UI_INTERACTION_DELAY_LONG);
+    
+    // Look for WalletConnect related elements
+    const walletConnectElements = [
+      'text=WalletConnect',
+      '[data-testid*="walletconnect"]',
+      '[class*="walletconnect"]',
+      'text=Connect Wallet',
+      'text=Scan QR code',
+      'canvas', // QR code canvas
+      'img[alt*="QR"]',
+      '[data-testid="qr-code"]'
+    ];
+    
+    let walletConnectFound = false;
+    for (const selector of walletConnectElements) {
+      try {
+        const element = localAppTab.locator(selector).first();
+        if (await element.isVisible({ timeout: 2000 })) {
+          console.log(`✓ WalletConnect element found with selector: ${selector}`);
+          walletConnectFound = true;
+          break;
+        }
+      } catch (e) {
+        // Continue to next selector
+      }
+    }
+    
+    if (walletConnectFound) {
+      console.log('🔗 WalletConnect popup detected!');
+    } else {
+      console.log('⚠️ WalletConnect popup not immediately visible, but continuing...');
+    }
+    
+    // Pause for manual inspection as requested
+    console.log('⏸️ PAUSING FOR MANUAL INSPECTION:');
+    console.log('   - Check where WalletConnect link/QR code appears');
+    console.log('   - Inspect how to extract the connection link');
+    console.log('   - See how to paste it into Safe web app');
+    console.log('   - Press Continue when ready to proceed');
+    
+    if (DEBUG) {
+      await localAppTab.pause();
+    } else {
+      // Always pause here for manual inspection as requested
+      await localAppTab.pause();
+    }
+    
+    console.log('✅ Settings navigation and Safe auth service WalletConnect test completed');
   });
 
 });

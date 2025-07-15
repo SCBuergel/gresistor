@@ -22,6 +22,7 @@
     "test:e2e:debug": "DEBUG=true pnpm --filter @gresistor/ui test",
     "test:e2e:headed": "pnpm --filter @gresistor/ui test:metamask",
     "test:app-only": "APP_ONLY=true pnpm --filter @gresistor/ui test",
+    "test:app-only:headed": "APP_ONLY=true pnpm --filter @gresistor/ui test:headed",
     "test:app-only:debug": "APP_ONLY=true DEBUG=true pnpm --filter @gresistor/ui test",
     "lint": "pnpm -r lint"
   },
