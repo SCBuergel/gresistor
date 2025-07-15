@@ -60,7 +60,7 @@ export default defineConfig({
     command: 'pnpm dev',
     url: 'http://localhost:3000',
     reuseExistingServer: !process.env.CI,
-    timeout: 1000,
+    timeout: 30000,
     env: {
       REACT_APP_WALLETCONNECT_PROJECT_ID: '62626bd02bc0c91a73103509f9da4896',
       VITE_WALLETCONNECT_PROJECT_ID: '62626bd02bc0c91a73103509f9da4896',
