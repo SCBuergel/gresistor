@@ -19,6 +19,9 @@
     "deploy": "pnpm run build:ui",
     "test": "pnpm --filter @gresistor/ui test:metamask",
     "test:pause": "PAUSE=true pnpm --filter @gresistor/ui test:metamask",
+    "test:offchain": "OFFCHAIN=true pnpm --filter @gresistor/ui test:offchain",
+    "test:offchain:pause": "OFFCHAIN=true PAUSE=true pnpm --filter @gresistor/ui test:offchain",
+    "test:offchain:headed": "OFFCHAIN=true HEADED=true pnpm --filter @gresistor/ui test:offchain",
     "lint": "pnpm -r lint",
     "postinstall": "pnpm --filter @gresistor/ui exec playwright install chromium"
   },

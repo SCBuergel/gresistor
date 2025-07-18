@@ -10,6 +10,9 @@
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "test:metamask": "playwright test --config=playwright.metamask.config.ts",
     "test:metamask:pause": "PAUSE=true playwright test --config=playwright.metamask.config.ts",
+    "test:offchain": "playwright test --config=playwright.offchain.config.ts",
+    "test:offchain:pause": "PAUSE=true playwright test --config=playwright.offchain.config.ts",
+    "test:offchain:headed": "HEADED=true playwright test --config=playwright.offchain.config.ts",
     "postinstall": "playwright install chromium"
   },
   "dependencies": {

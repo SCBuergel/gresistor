@@ -9,6 +9,9 @@ const DEFAULT_TIMEOUT = 10000; // Default timeout in ms for all Playwright opera
 // Pause mode - set to true to enable page.pause() at the end of each test
 const PAUSE = process.env.PAUSE === 'true';
 
+// Offchain mode - set to true to skip wallet-related tests (00, 01, 09)
+const OFFCHAIN = process.env.OFFCHAIN === 'true';
+
 // MetaMask test configuration
 const TEST_MNEMONIC = 'zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo wrong';
 const METAMASK_PASSWORD = 'TestPassword123!';
@@ -30,6 +33,8 @@ test.describe('MetaMask Connection to Safe Global', () => {
   });
 
   test('00 - Initialize MetaMask and connect to Safe Global', async ({ browser }) => {
+    test.skip(OFFCHAIN, 'Skipping MetaMask initialization in offchain mode');
+    
     // Initialize MetaMask for all tests
     console.log('🦊 Testing MetaMask bootstrap and Safe Global connection...');
     
@@ -74,6 +79,7 @@ test.describe('MetaMask Connection to Safe Global', () => {
   });
 
   test('01 - Connect to Safe Global URL', async () => {
+    test.skip(OFFCHAIN, 'Skipping Safe Global connection in offchain mode');
     
     console.log('🔗 Connecting to Safe Global...');
     
@@ -1284,6 +1290,8 @@ test.describe('MetaMask Connection to Safe Global', () => {
   });
 
   test('09 - Navigate to Settings and restore second backup with Safe auth service', async () => {
+    test.skip(OFFCHAIN, 'Skipping Safe auth service test in offchain mode');
+    
     console.log('\n=== TEST 09 - Navigate to Settings and restore second backup with Safe auth service ===');
     console.log('🔄 Testing settings navigation and Safe auth service restore...');
     
