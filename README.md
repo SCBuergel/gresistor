@@ -108,7 +108,21 @@ pnpm test
 
 # Run with pause mode (pauses at strategic points for inspection)
 pnpm test:pause
+
+# Run local app tests only (excludes wallet interactions)
+pnpm test:offchain
+
+# Run local app tests in headed mode (browser visible)
+pnpm test:offchain:headed
+
+# Run local app tests with pause mode (headed + pauses for debugging)
+pnpm test:offchain:pause
 ```
+
+**Test Types:**
+- **Full E2E** (`pnpm test`): Complete workflow with MetaMask/Safe integration
+- **Offchain** (`pnpm test:offchain`): Local app functionality only, faster for development
+- **Headed modes**: Add `:headed` for visible browser, `:pause` for debugging
 
 #### Troubleshooting
 
@@ -199,65 +213,7 @@ pnpm lint
 
 ---
 
-## 🧪 Testing
 
-End-to-end tests are written with **Playwright** and **Dappwright** for MetaMask simulation.
-
-### **Test Commands**
-
-```bash
-# Run end-to-end tests with MetaMask integration
-pnpm test
-
-# Run with pause mode (pauses at strategic points for inspection)
-pnpm test:pause
-
-# Run local app tests only (excludes wallet interactions)
-pnpm test:offchain
-
-# Run local app tests in headed mode (browser visible)
-pnpm test:offchain:headed
-
-# Run local app tests with pause mode (headed + pauses for debugging)
-pnpm test:offchain:pause
-```
-
-### **Test Modes Explained**
-
-#### **Full E2E Tests (MetaMask Integration)**
-- **`pnpm test`**: Complete workflow including wallet connections (headless)
-- **`pnpm test:pause`**: Same as above but pauses at strategic points (always headed)
-
-#### **Offchain Tests (Local App Only)**
-- **`pnpm test:offchain`**: Tests core app functionality without wallet interactions (headless)
-- **`pnpm test:offchain:headed`**: Same as above but with visible browser (no pause)
-- **`pnpm test:offchain:pause`**: Local tests with pause mode for debugging (headed + pauses)
-
-#### **Test Coverage by Mode**
-
-| Test | Description | Full E2E | Offchain |
-|------|-------------|----------|----------|
-| **00** | MetaMask initialization & Safe Global connection | ✅ | ❌ Skipped |
-| **01** | Connect to Safe Global URL | ✅ | ❌ Skipped |
-| **02** | Verify localhost:3000 loads correctly | ✅ | ✅ |
-| **03** | Configure Shamir settings (2-of-3) & create services | ✅ | ✅ |
-| **04** | Create backup using all three services | ✅ | ✅ |
-| **05** | Create two additional mock signature services | ✅ | ✅ |
-| **06** | Create backup using three mock signature services | ✅ | ✅ |
-| **07** | Restore using backup with mock signature services | ✅ | ✅ |
-| **08** | Restore other backup using No Auth + Mock Auth | ✅ | ✅ |
-| **09** | Safe auth service with WalletConnect | ✅ | ❌ Skipped |
-
-#### **When to Use Each Mode**
-
-- **`pnpm test`**: Full integration testing with wallet connections
-- **`pnpm test:offchain`**: Fast local development testing (CI/CD friendly)
-- **`pnpm test:offchain:headed`**: Visual debugging of local app functionality
-- **`pnpm test:offchain:pause`**: Step-by-step debugging of specific test scenarios
-
-**💡 Pro Tip**: Use offchain mode for rapid development cycles, full E2E for release validation.
-
----
 
 ## 🔒 Security Model
 
