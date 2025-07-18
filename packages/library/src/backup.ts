@@ -1,16 +1,15 @@
 import { BackupProfile, BackupResult, RestoreRequest, ShamirConfig, KeyShardStorageBackend, EncryptedDataStorage, TransportConfig, SafeConfig, KeyShard, KeyShareStorage } from './types';
 import { EncryptionService } from './encryption';
 import { ShamirSecretSharing } from './shamir';
-import { StorageService, KeyShareRegistryService, KeyShareStorageService } from './KeySharing';
+import { KeyShareRegistryService, KeyShareStorageService } from './KeySharing';
 import { BrowserStorageService, InMemoryStorageService } from './EncryptedDataStorage';
 import { SafeAuthService } from './safe-auth';
 
 export class BackupService {
   private encryption: EncryptionService;
   private shamir: ShamirSecretSharing;
-  private keyShardStorageService: StorageService;
-  private encryptedDataStorage: StorageService | BrowserStorageService | InMemoryStorageService;
-  private keyShareStorage: StorageService | KeyShareRegistryService | InMemoryStorageService;
+  private encryptedDataStorage: BrowserStorageService | InMemoryStorageService;
+  private keyShareStorage: KeyShareRegistryService | InMemoryStorageService;
   private keyShareStorages: Map<string, KeyShareStorageService> = new Map();
   private safeAuth?: SafeAuthService;
 
@@ -24,7 +23,6 @@ export class BackupService {
     this.keyShareStorages = new Map();
     this.encryption = new EncryptionService();
     this.shamir = new ShamirSecretSharing(shamirConfig);
-    this.keyShardStorageService = new StorageService(keyShardStorageBackend, transportConfig);
     
     // Create appropriate storage service for encrypted data
     if (encryptedDataStorage?.type === 'local-browser') {
@@ -38,13 +36,9 @@ export class BackupService {
     } else if (encryptedDataStorage?.type === 'memory') {
       this.encryptedDataStorage = new InMemoryStorageService();
     } else {
-      const encryptedStorageBackend: KeyShardStorageBackend = encryptedDataStorage ? {
-        type: encryptedDataStorage.type,
-        endpoint: encryptedDataStorage.endpoint || '',
-        apiKey: encryptedDataStorage.apiKey
-      } : { type: 'swarm', endpoint: 'http://localhost:8080' };
-      
-      this.encryptedDataStorage = new StorageService(encryptedStorageBackend, transportConfig);
+      // For other storage types, default to in-memory storage
+      // (distributed storage backends like Swarm/IPFS are not implemented)
+      this.encryptedDataStorage = new InMemoryStorageService();
     }
     
     // Create appropriate storage service for key shards
@@ -53,7 +47,9 @@ export class BackupService {
     } else if (keyShardStorageBackend?.type === 'memory') {
       this.keyShareStorage = new InMemoryStorageService();
     } else {
-      this.keyShareStorage = new StorageService(keyShardStorageBackend, transportConfig);
+      // For other storage types, default to in-memory storage
+      // (distributed storage backends like Swarm/IPFS are not implemented)
+      this.keyShareStorage = new InMemoryStorageService();
     }
     
     if (safeConfig) {

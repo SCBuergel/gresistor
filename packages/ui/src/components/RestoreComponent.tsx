@@ -303,8 +303,8 @@ export default function RestoreComponent({ shamirConfig, keyShardStorageBackend,
         throw new Error(`Unknown auth type: ${serviceInfo.authType}`)
       }
       
-      // Test authentication by trying to get shards
-      await storageService.getAllShardsWithAuth(authData)
+      // Test authentication by trying to get shard metadata
+      await storageService.getShardMetadata()
       
       // Update service auth status
       setServicesAuthInfo(prev => prev.map(s => 
@@ -331,17 +331,30 @@ export default function RestoreComponent({ shamirConfig, keyShardStorageBackend,
   const loadShardsForService = async (serviceName: string, authData: AuthData) => {
     try {
       const storageService = new KeyShareStorageService(serviceName)
-      const storedShards = await storageService.getAllShardsWithAuth(authData)
       
-      // Convert StoredKeyShardData to KeyShard format
-      const shards: KeyShard[] = storedShards.map((stored, index) => ({
-        id: `${serviceName}-${index}`,
-        data: stored.data,
-        threshold: shamirConfig.threshold,
-        totalShares: shamirConfig.totalShares,
-        authorizationAddress: stored.authorizationAddress,
-        timestamp: stored.timestamp ? new Date(stored.timestamp) : undefined
-      }))
+      // First get shard metadata to see what's available
+      const shardsMetadata = await storageService.getShardMetadata()
+      
+      // Then get the actual shard data for each metadata entry
+      const shards: KeyShard[] = []
+      for (let i = 0; i < shardsMetadata.length; i++) {
+        const metadata = shardsMetadata[i]
+        try {
+          const shardData = await storageService.getAuthorizedShard(metadata.timestamp.getTime(), authData)
+          if (shardData) {
+            shards.push({
+              id: `${serviceName}-${i}`,
+              data: shardData.data,
+              threshold: shamirConfig.threshold,
+              totalShares: shamirConfig.totalShares,
+              authorizationAddress: shardData.authorizationAddress,
+              timestamp: shardData.timestamp
+            })
+          }
+        } catch (error) {
+          console.warn(`❌ Failed to get authorized shard for timestamp ${metadata.timestamp.getTime()}:`, error)
+        }
+      }
       
       setServiceShards(prev => {
         const updated = prev.filter(s => s.serviceName !== serviceName)

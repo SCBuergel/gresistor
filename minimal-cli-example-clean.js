@@ -52,7 +52,9 @@ async function main() {
     const retrievedShards = [];
     
     // Get shards from services
-    const shard1 = await keyShardServices[0].getLatestShard();
+    const service1Metadata = await keyShardServices[0].getShardMetadata();
+    const latestService1Metadata = service1Metadata.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())[0];
+    const shard1 = await keyShardServices[0].getAuthorizedShard(latestService1Metadata.timestamp.getTime());
     retrievedShards.push({
       id: 'shard_1',
       data: shard1.data,
@@ -60,7 +62,9 @@ async function main() {
       totalShards: 3
     });
     
-    const shard2 = await keyShardServices[1].getLatestShardWithAuth({
+    const service2Metadata = await keyShardServices[1].getShardMetadata();
+    const latestService2Metadata = service2Metadata.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())[0];
+    const shard2 = await keyShardServices[1].getAuthorizedShard(latestService2Metadata.timestamp.getTime(), {
       ownerAddress: '123',
       signature: '246'
     });

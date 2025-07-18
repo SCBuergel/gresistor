@@ -389,70 +389,10 @@ private async initializeService(): Promise<void> {
     });
   }
 
-  /**
-   * Retrieves all key shards with authorization validation
-   * Only returns shards that match the provided authorization address
-   */
-  async getAllShardsWithAuth(authData?: AuthData): Promise<Array<{ data: Uint8Array; timestamp: Date; authorizationAddress?: string }>> {
-    const authConfig = await this.getAuthConfig();
-    
-    // Validate authorization based on service auth type
-    if (!(await this.validateAuthData(authConfig.authType, authData))) {
-      throw new Error(`Invalid authorization data for service auth type: ${authConfig.authType}`);
-    }
-    
-    const db = await this.getDB();
-    
-    return new Promise((resolve, reject) => {
-      try {
-        const transaction = db.transaction([this.storeName], 'readonly');
-        const store = transaction.objectStore(this.storeName);
-        const request = store.getAll();
-        
-        request.onsuccess = () => {
-          const allShards = request.result.map(item => ({
-            data: new Uint8Array(item.data),
-            timestamp: new Date(item.timestamp),
-            authorizationAddress: item.authorizationAddress
-          }));
-          
-          // SECURITY FIX: Filter shards to only return those matching the authorization address
-          const authorizedShards = allShards.filter(shard => {
-            // If no authData provided, only return shards with no authorization address
-            if (!authData) {
-              return !shard.authorizationAddress;
-            }
-            
-            // If shard has no authorization address, it's accessible to anyone
-            if (!shard.authorizationAddress) {
-              return true;
-            }
-            
-            // Check if the provided auth data matches the shard's authorization address
-            const isValidAuth = this.validateShardAuth(shard.authorizationAddress, authData, authConfig.authType);
-            if (isValidAuth) {
-              console.log(`✅ Access granted to shard with address ${shard.authorizationAddress}`);
-            } else {
-              console.log(`🔒 Access denied to shard with address ${shard.authorizationAddress} (provided: ${authData.ownerAddress})`);
-            }
-            return isValidAuth;
-          });
-          
-          console.log(`🔐 Filtered ${allShards.length} total shards to ${authorizedShards.length} authorized shards for address: ${authData?.ownerAddress || 'none'}`);
-          resolve(authorizedShards);
-        };
-        
-        request.onerror = () => reject(request.error);
-        transaction.onerror = () => reject(transaction.error);
-      } catch (error) {
-        reject(error);
-      }
-    });
-  }
+
 
   /**
    * Retrieves shard metadata only (for discovery purposes - no sensitive data exposed)
-   * Use getAllShardsWithAuth() to access actual shard data after proper authorization
    */
   async getShardMetadata(): Promise<Array<{ timestamp: Date; authorizationAddress?: string; dataSize: number }>> {
     const db = await this.getDB();
@@ -478,14 +418,6 @@ private async initializeService(): Promise<void> {
         reject(error);
       }
     });
-  }
-
-  /**
-   * @deprecated Use getShardMetadata() for discovery and getAllShardsWithAuth() for accessing data
-   * This method is kept for backwards compatibility but should not be used
-   */
-  async getAllShards(): Promise<Array<{ data: Uint8Array; timestamp: Date; authorizationAddress?: string }>> {
-    throw new Error('getAllShards() is deprecated for security reasons. Use getShardMetadata() for discovery or getAllShardsWithAuth() for authorized access.');
   }
 
   /**
@@ -706,50 +638,7 @@ private async initializeService(): Promise<void> {
   }
 }
 
-export class StorageService {
-  private backend: KeyShardStorageBackend;
-  private transport: TransportConfig;
 
-  constructor(
-    backend: KeyShardStorageBackend = { type: 'swarm', endpoint: 'http://localhost:8080' },
-    transport: TransportConfig = { method: 'plain-http' }
-  ) {
-    this.backend = backend;
-    this.transport = transport;
-  }
-
-  /**
-   * Uploads data to the configured storage backend
-   */
-  async upload(data: Uint8Array): Promise<string> {
-    // Stub implementation
-    throw new Error('upload() not implemented');
-  }
-
-  /**
-   * Downloads data from the storage backend by hash
-   */
-  async download(hash: string): Promise<Uint8Array> {
-    // Stub implementation
-    throw new Error('download() not implemented');
-  }
-
-  /**
-   * Checks if data exists at the given hash
-   */
-  async exists(hash: string): Promise<boolean> {
-    // Stub implementation
-    throw new Error('exists() not implemented');
-  }
-
-  /**
-   * Gets metadata about stored data
-   */
-  async getMetadata(hash: string): Promise<{ size: number; timestamp: Date }> {
-    // Stub implementation
-    throw new Error('getMetadata() not implemented');
-  }
-}
 
 
 
@@ -758,17 +647,96 @@ export class StorageService {
 
 
 /**
- * Simple Node.js-compatible key shard storage service
- * Alternative to KeyShareStorageService for environments without IndexedDB
+ * Abstract base class for key shard storage services
  */
-export class SimpleKeyShardStorage {
-  private serviceName: string;
-  private authConfig: ServiceAuthConfig;
-  private shards: Map<string, { data: Uint8Array; timestamp: Date; authorizationAddress?: string }>;
+export abstract class BaseKeyShareStorage {
+  protected serviceName: string;
+  protected authConfig: ServiceAuthConfig;
 
   constructor(serviceName: string, authConfig: ServiceAuthConfig = { authType: 'no-auth', description: 'No authentication required' }) {
     this.serviceName = serviceName;
     this.authConfig = authConfig;
+  }
+
+  /**
+   * Store a key shard with optional authorization address
+   */
+  abstract storeShard(data: Uint8Array, authorizationAddress?: string): Promise<string | void>;
+
+  /**
+   * Get shard metadata only (for discovery purposes)
+   */
+  abstract getShardMetadata(): Promise<Array<{ timestamp: Date; authorizationAddress?: string; dataSize: number }>>;
+
+  /**
+   * Clear all shards
+   */
+  abstract clear(): Promise<void>;
+
+
+
+  /**
+   * Validate authorization data based on auth type
+   */
+  protected async validateAuthData(authType: AuthorizationType, authData?: AuthData): Promise<boolean> {
+    console.log(`🔐 Validating auth data for service "${this.serviceName}" (${authType}):`, authData);
+    
+    switch (authType) {
+      case 'no-auth':
+        console.log(`✅ No authentication required for service "${this.serviceName}"`);
+        return true;
+        
+      case 'mock-signature-2x':
+        if (!authData || !authData.ownerAddress || !authData.signature) {
+          console.log(`❌ Mock signature auth requires ownerAddress and signature for service "${this.serviceName}"`);
+          return false;
+        }
+        
+        try {
+          const addressNum = parseInt(authData.ownerAddress);
+          const signatureNum = parseInt(authData.signature);
+          const expectedSignature = addressNum * 2;
+          
+          console.log(`🔧 Service auth validation for "${this.serviceName}": address=${addressNum}, signature=${signatureNum}, expected=${expectedSignature}`);
+          const isValid = signatureNum === expectedSignature;
+          console.log(`${isValid ? '✅' : '❌'} Mock signature validation result: ${isValid}`)
+          return isValid;
+        } catch (error) {
+          console.error(`❌ Failed to validate mock signature for service "${this.serviceName}":`, error);
+          return false;
+        }
+        
+      case 'safe-signature':
+        if (!authData || !authData.safeAddress || !authData.chainId) {
+          console.error('Safe signature validation failed: missing Safe address or chain ID');
+          return false;
+        }
+
+        // Create SafeAuthService to validate the signature
+        const safeAuthService = new SafeAuthService({
+          safeAddress: authData.safeAddress,
+          chainId: authData.chainId
+          // owners will be fetched dynamically
+        });
+
+        return await safeAuthService.verifySignature(authData);
+      
+      default:
+        console.error('Unknown auth type:', authType);
+        return false;
+    }
+  }
+}
+
+/**
+ * Node.js-compatible key shard storage service
+ * In-memory storage implementation for server environments
+ */
+export class NodeKeyShareStorage extends BaseKeyShareStorage {
+  private shards: Map<string, { data: Uint8Array; timestamp: Date; authorizationAddress?: string }>;
+
+  constructor(serviceName: string, authConfig: ServiceAuthConfig = { authType: 'no-auth', description: 'No authentication required' }) {
+    super(serviceName, authConfig);
     this.shards = new Map(); // Store shards in memory
   }
 
@@ -788,82 +756,7 @@ export class SimpleKeyShardStorage {
     return shardId;
   }
 
-  /**
-   * Get all shards with authorization validation
-   * Only returns shards that match the provided authorization address
-   */
-  async getAllShardsWithAuth(authData?: AuthData): Promise<Array<{ data: Uint8Array; timestamp: Date; authorizationAddress?: string }>> {
-    // Validate authorization based on service auth type
-    if (!(await this.validateAuthData(this.authConfig.authType, authData))) {
-      throw new Error(`Invalid authorization data for service auth type: ${this.authConfig.authType}`);
-    }
 
-    const allShards = Array.from(this.shards.values());
-    
-    // SECURITY FIX: Filter shards to only return those matching the authorization address
-    const authorizedShards = allShards.filter(shard => {
-      // If no authData provided, only return shards with no authorization address
-      if (!authData) {
-        return !shard.authorizationAddress;
-      }
-      
-      // If shard has no authorization address, it's accessible to anyone
-      if (!shard.authorizationAddress) {
-        return true;
-      }
-      
-      // Check if the provided auth data matches the shard's authorization address
-      if (authData.ownerAddress !== shard.authorizationAddress) {
-        console.log(`🔒 Access denied to shard with address ${shard.authorizationAddress} (provided: ${authData.ownerAddress})`);
-        return false;
-      }
-      
-      // For signature-based auth, validate the signature matches
-      if (this.authConfig.authType === 'mock-signature-2x' && authData.signature) {
-        const addressNum = parseInt(shard.authorizationAddress);
-        const signatureNum = parseInt(authData.signature);
-        const expectedSignature = addressNum * 2;
-        
-        if (signatureNum !== expectedSignature) {
-          console.log(`🔒 Signature validation failed for shard with address ${shard.authorizationAddress}`);
-          return false;
-        }
-      }
-      
-      console.log(`✅ Access granted to shard with address ${shard.authorizationAddress}`);
-      return true;
-    });
-    
-    console.log(`🔐 Filtered ${allShards.length} total shards to ${authorizedShards.length} authorized shards for address: ${authData?.ownerAddress || 'none'}`);
-    return authorizedShards;
-  }
-
-  /**
-   * Get all shards (returns only metadata for security)
-   */
-  async getAllShards(): Promise<Array<{ data: Uint8Array; timestamp: Date; authorizationAddress?: string }>> {
-    return Array.from(this.shards.values());
-  }
-
-  /**
-   * Get latest shard with authorization validation
-   */
-  async getLatestShardWithAuth(authData?: AuthData): Promise<{ data: Uint8Array; timestamp: Date; authorizationAddress?: string } | null> {
-    const shards = await this.getAllShardsWithAuth(authData);
-    if (shards.length === 0) return null;
-    
-    return shards.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())[0];
-  }
-
-  /**
-   * Get latest shard without auth (for convenience in examples)
-   */
-  async getLatestShard(): Promise<{ data: Uint8Array; timestamp: Date; authorizationAddress?: string } | null> {
-    const shards = Array.from(this.shards.values());
-    if (shards.length === 0) return null;
-    
-    return shards.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())[0];
-  }
 
   /**
    * Get shard metadata only (for discovery purposes - no sensitive data exposed)
@@ -890,52 +783,7 @@ export class SimpleKeyShardStorage {
     return { ...this.authConfig };
   }
 
-  /**
-   * Validate authorization data based on auth type
-   */
-  private async validateAuthData(authType: AuthorizationType, authData?: AuthData): Promise<boolean> {
-    console.log(`🔐 Validating auth data for service "${this.serviceName}" (${authType}):`, authData);
-    
-    switch (authType) {
-      case 'no-auth':
-        console.log(`✅ No authentication required for service "${this.serviceName}"`);
-        return true;
-        
-      case 'mock-signature-2x':
-        if (!authData || !authData.ownerAddress || !authData.signature) {
-          console.log(`❌ Mock signature auth requires ownerAddress and signature for service "${this.serviceName}"`);
-          return false;
-        }
-        
-        // Enhanced mock validation requiring the auth data to be submitted twice
-        if (authData.signature === 'mock-sigmock-sig') {
-          console.log('✅ Mock signature (2x) validation passed');
-          return true;
-        } else {
-          console.error('Mock signature validation failed: signature should be "mock-sigmock-sig"');
-          return false;
-        }
-        
-      case 'safe-signature':
-        if (!authData || !authData.safeAddress || !authData.chainId) {
-          console.error('Safe signature validation failed: missing Safe address or chain ID');
-          return false;
-        }
 
-        // Create SafeAuthService to validate the signature
-        const safeAuthService = new SafeAuthService({
-          safeAddress: authData.safeAddress,
-          chainId: authData.chainId
-          // owners will be fetched dynamically
-        });
-
-        return await safeAuthService.verifySignature(authData);
-      
-      default:
-        console.error('Unknown auth type:', authType);
-        return false;
-    }
-  }
 
   /**
    * Clear all shards
@@ -943,4 +791,50 @@ export class SimpleKeyShardStorage {
   async clear(): Promise<void> {
     this.shards.clear();
   }
-} 
+}
+
+/**
+ * Browser-compatible key shard storage service
+ * IndexedDB-based storage implementation for browser environments
+ */
+export class BrowserKeyShareStorage extends BaseKeyShareStorage {
+  private keyShareStorageService: KeyShareStorageService;
+
+  constructor(serviceName: string, authConfig: ServiceAuthConfig = { authType: 'no-auth', description: 'No authentication required' }) {
+    super(serviceName, authConfig);
+    this.keyShareStorageService = new KeyShareStorageService(serviceName, authConfig);
+  }
+
+  /**
+   * Store a key shard with optional authorization address
+   */
+  async storeShard(data: Uint8Array, authorizationAddress?: string): Promise<void> {
+    await this.keyShareStorageService.storeShard(data, authorizationAddress);
+  }
+
+
+
+  /**
+   * Get shard metadata only (for discovery purposes)
+   */
+  async getShardMetadata(): Promise<Array<{ timestamp: Date; authorizationAddress?: string; dataSize: number }>> {
+    return await this.keyShareStorageService.getShardMetadata();
+  }
+
+  /**
+   * Clear all shards
+   */
+  async clear(): Promise<void> {
+    await this.keyShareStorageService.clear();
+  }
+
+  /**
+   * Delete the entire database
+   */
+  async deleteDatabase(): Promise<void> {
+    await this.keyShareStorageService.deleteDatabase();
+  }
+}
+
+// Keep SimpleKeyShardStorage as an alias for backwards compatibility
+export const SimpleKeyShardStorage = NodeKeyShareStorage; 

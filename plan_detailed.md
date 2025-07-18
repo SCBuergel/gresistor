@@ -282,7 +282,6 @@ npm run build
 - `/packages/ui/src/components/RestoreComponent.tsx`
 
 **Common issues:**
-- `EncryptedDataStorageService` doesn't exist (should be `StorageService`)
 - Missing imports for new services
 
 ## Testing Strategy

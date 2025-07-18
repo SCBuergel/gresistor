@@ -2,7 +2,7 @@
 export { BackupService } from './backup';
 export { EncryptionService } from './encryption';
 export { ShamirSecretSharing } from './shamir';
-export { StorageService, KeyShareRegistryService, KeyShareStorageService, SimpleKeyShardStorage } from './KeySharing';
+export { KeyShareRegistryService, KeyShareStorageService, BaseKeyShareStorage, NodeKeyShareStorage, BrowserKeyShareStorage, SimpleKeyShardStorage } from './KeySharing';
 export { BrowserStorageService, InMemoryStorageService, EncryptedDataStorageService } from './EncryptedDataStorage';
 export { SafeAuthService } from './safe-auth';
 export { SIWESafeAuthService } from './siwe-safe-auth';

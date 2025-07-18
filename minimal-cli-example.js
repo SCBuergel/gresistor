@@ -125,7 +125,12 @@ async function main() {
   
   // Get shard from service-1 (no-auth)
   console.log('   🔍 Getting shards from service-1 (no-auth)...');
-  const shard1 = await keyShardServices[0].getLatestShard();
+  const service1Metadata = await keyShardServices[0].getShardMetadata();
+  if (service1Metadata.length === 0) {
+    throw new Error('No shards found in service-1');
+  }
+  const latestService1Metadata = service1Metadata.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())[0];
+  const shard1 = await keyShardServices[0].getAuthorizedShard(latestService1Metadata.timestamp.getTime());
   console.log('   ✅ Retrieved shard 1 without authentication');
   retrievedShards.push({
     id: 'shard_1',
@@ -139,10 +144,15 @@ async function main() {
   // Get shard from service-2 (mock-signature-2x)
   console.log('   🔍 Getting shards from service-2 (mock-signature-2x)...');
   console.log(`   🔐 Authenticating with owner=${authData.ownerAddress}, signature=${authData.signature}...`);
-      const shard2 = await keyShardServices[1].getLatestShardWithAuth({
-      ownerAddress: '123',
-      signature: '246'
-    });
+  const service2Metadata = await keyShardServices[1].getShardMetadata();
+  if (service2Metadata.length === 0) {
+    throw new Error('No shards found in service-2');
+  }
+  const latestService2Metadata = service2Metadata.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())[0];
+  const shard2 = await keyShardServices[1].getAuthorizedShard(latestService2Metadata.timestamp.getTime(), {
+    ownerAddress: '123',
+    signature: '246'
+  });
   console.log('   ✅ Retrieved shard 2 with successful authentication');
   retrievedShards.push({
     id: 'shard_2',
