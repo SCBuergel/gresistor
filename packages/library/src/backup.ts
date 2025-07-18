@@ -1,7 +1,8 @@
 import { BackupProfile, BackupResult, RestoreRequest, ShamirConfig, KeyShardStorageBackend, EncryptedDataStorage, TransportConfig, SafeConfig, KeyShard, KeyShareStorage } from './types';
 import { EncryptionService } from './encryption';
 import { ShamirSecretSharing } from './shamir';
-import { StorageService, BrowserStorageService, InMemoryStorageService, KeyShareRegistryService, KeyShareStorageService } from './storage';
+import { StorageService, KeyShareRegistryService, KeyShareStorageService } from './storage';
+import { BrowserStorageService, InMemoryStorageService } from './EncryptedDataStorage';
 import { SafeAuthService } from './safe-auth';
 
 export class BackupService {

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 const { BackupService } = require('./packages/library/dist/index.js');
-const { InMemoryStorageService } = require('./packages/library/dist/storage.js');
+const { InMemoryStorageService } = require('./packages/library/dist/EncryptedDataStorage.js');
 
 async function testBackupRestore() {
   console.log('🧪 Testing Backup and Restore Functionality\n');

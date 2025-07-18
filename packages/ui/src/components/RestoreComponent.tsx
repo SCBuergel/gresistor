@@ -174,7 +174,11 @@ export default function RestoreComponent({ shamirConfig, keyShardStorageBackend,
 
   const loadAvailableBackups = async () => {
     try {
-      const encryptedDataStorageService = new EncryptedDataStorageService(encryptedDataStorage)
+      // Convert storage config to only supported types
+      const storageConfig = encryptedDataStorage.type === 'memory' || encryptedDataStorage.type === 'local-browser' 
+        ? { type: encryptedDataStorage.type }
+        : { type: 'memory' as const }
+      const encryptedDataStorageService = new EncryptedDataStorageService(storageConfig)
       
       if ((encryptedDataStorageService as any).listHashes) {
         const hashes = await (encryptedDataStorageService as any).listHashes()
@@ -419,7 +423,11 @@ export default function RestoreComponent({ shamirConfig, keyShardStorageBackend,
 
     try {
       // 1. Create individual services (like minimal example)
-      const encryptedDataStorageService = new EncryptedDataStorageService(encryptedDataStorage)
+      // Convert storage config to only supported types
+      const storageConfig = encryptedDataStorage.type === 'memory' || encryptedDataStorage.type === 'local-browser' 
+        ? { type: encryptedDataStorage.type }
+        : { type: 'memory' as const }
+      const encryptedDataStorageService = new EncryptedDataStorageService(storageConfig)
       const encryptionService = new EncryptionService()
       const shamirService = new ShamirSecretSharing(shamirConfig)
 

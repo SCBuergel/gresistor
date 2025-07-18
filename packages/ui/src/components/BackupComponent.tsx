@@ -213,7 +213,11 @@ export default function BackupComponent({ shamirConfig, keyShardStorageBackend, 
 
     try {
       // 1. Create individual services (like minimal example)
-      const encryptedDataStorageService = new EncryptedDataStorageService(encryptedDataStorage)
+      // Convert storage config to only supported types
+      const storageConfig = encryptedDataStorage.type === 'memory' || encryptedDataStorage.type === 'local-browser' 
+        ? { type: encryptedDataStorage.type }
+        : { type: 'memory' as const }
+      const encryptedDataStorageService = new EncryptedDataStorageService(storageConfig)
       const encryptionService = new EncryptionService()
       const shamirService = new ShamirSecretSharing(shamirConfig)
 
