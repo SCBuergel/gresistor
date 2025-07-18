@@ -427,7 +427,7 @@ private async initializeService(): Promise<void> {
     const authConfig = await this.getAuthConfig();
     
     // Validate authorization based on service auth type
-    if (!(await this.validateAuthData(authConfig.authType, authData))) {
+    if (!(await BaseKeyShareStorage.validateAuthDataStatic(this.serviceName, authConfig.authType, authData))) {
       throw new Error(`Invalid authorization data for service auth type: ${authConfig.authType}`);
     }
     
@@ -476,78 +476,7 @@ private async initializeService(): Promise<void> {
     });
   }
 
-  /**
-   * Validates authorization data based on service auth type
-   */
-  private async validateAuthData(authType: AuthorizationType, authData?: AuthData): Promise<boolean> {
-    console.log(`🔍 validateAuthData called for service "${this.serviceName}":`)
-    console.log(`   authType: ${authType}`)
-    console.log(`   authData:`, authData)
-    
-    switch (authType) {
-      case 'no-auth':
-        // For no-auth, we just need an owner address (or no auth data at all)
-        const noAuthValid = !authData || !!authData.ownerAddress;
-        console.log(`✅ No-auth validation for "${this.serviceName}": ${noAuthValid}`)
-        return noAuthValid;
-      
-      case 'mock-signature-2x':
-        // For mock signature, we need both address and signature
-        if (!authData || !authData.ownerAddress || !authData.signature) {
-          console.error(`❌ Mock signature auth requires both ownerAddress and signature for service "${this.serviceName}"`);
-          console.error(`   authData provided: ${!!authData}`)
-          console.error(`   ownerAddress: ${authData?.ownerAddress}`)
-          console.error(`   signature: ${authData?.signature}`)
-          return false;
-        }
-        
-        try {
-          const addressNum = parseInt(authData.ownerAddress);
-          const signatureNum = parseInt(authData.signature);
-          const expectedSignature = addressNum * 2;
-          
-          console.log(`🔧 Service auth validation for "${this.serviceName}": address=${addressNum}, signature=${signatureNum}, expected=${expectedSignature}`);
-          const isValid = signatureNum === expectedSignature;
-          console.log(`${isValid ? '✅' : '❌'} Mock signature validation result: ${isValid}`)
-          return isValid;
-        } catch (error) {
-          console.error(`❌ Failed to validate mock signature for service "${this.serviceName}":`, error);
-          return false;
-        }
-      
-      case 'safe-signature':
-        if (!authData || !authData.safeAddress || !authData.chainId) {
-          console.error('Safe signature validation failed: missing Safe address or chain ID');
-          return false;
-        }
 
-        try {
-          // Create SafeAuthService to validate the signature
-          const safeAuthService = new SafeAuthService({
-            safeAddress: authData.safeAddress,
-            chainId: authData.chainId
-            // owners will be fetched dynamically
-          });
-
-          const isValid = await safeAuthService.verifySignature(authData);
-          
-          if (isValid) {
-            console.log(`✅ Safe signature validation passed for "${this.serviceName}": owner=${authData.ownerAddress}, safe=${authData.safeAddress}, chain=${authData.chainId}`)
-            return true
-          } else {
-            console.error(`❌ Safe signature validation failed for "${this.serviceName}"`)
-            return false
-          }
-        } catch (error) {
-          console.error(`❌ Failed to validate Safe signature for service "${this.serviceName}":`, error);
-          return false;
-        }
-      
-      default:
-        console.error(`❌ Unknown auth type for service "${this.serviceName}": ${authType}`);
-        return false;
-    }
-  }
 
   /**
    * Validates shard-specific authorization (for backwards compatibility)
@@ -679,16 +608,32 @@ export abstract class BaseKeyShareStorage {
    * Validate authorization data based on auth type
    */
   protected async validateAuthData(authType: AuthorizationType, authData?: AuthData): Promise<boolean> {
-    console.log(`🔐 Validating auth data for service "${this.serviceName}" (${authType}):`, authData);
+    return BaseKeyShareStorage.validateAuthDataStatic(this.serviceName, authType, authData);
+  }
+
+  /**
+   * Static utility method for validating authorization data
+   * Can be used by any class that needs to validate auth data
+   */
+  static async validateAuthDataStatic(serviceName: string, authType: AuthorizationType, authData?: AuthData): Promise<boolean> {
+    console.log(`🔍 validateAuthData called for service "${serviceName}":`)
+    console.log(`   authType: ${authType}`)
+    console.log(`   authData:`, authData)
     
     switch (authType) {
       case 'no-auth':
-        console.log(`✅ No authentication required for service "${this.serviceName}"`);
-        return true;
-        
+        // For no-auth, we just need an owner address (or no auth data at all)
+        const noAuthValid = !authData || !!authData.ownerAddress;
+        console.log(`✅ No-auth validation for "${serviceName}": ${noAuthValid}`)
+        return noAuthValid;
+      
       case 'mock-signature-2x':
+        // For mock signature, we need both address and signature
         if (!authData || !authData.ownerAddress || !authData.signature) {
-          console.log(`❌ Mock signature auth requires ownerAddress and signature for service "${this.serviceName}"`);
+          console.error(`❌ Mock signature auth requires both ownerAddress and signature for service "${serviceName}"`);
+          console.error(`   authData provided: ${!!authData}`)
+          console.error(`   ownerAddress: ${authData?.ownerAddress}`)
+          console.error(`   signature: ${authData?.signature}`)
           return false;
         }
         
@@ -697,32 +642,45 @@ export abstract class BaseKeyShareStorage {
           const signatureNum = parseInt(authData.signature);
           const expectedSignature = addressNum * 2;
           
-          console.log(`🔧 Service auth validation for "${this.serviceName}": address=${addressNum}, signature=${signatureNum}, expected=${expectedSignature}`);
+          console.log(`🔧 Service auth validation for "${serviceName}": address=${addressNum}, signature=${signatureNum}, expected=${expectedSignature}`);
           const isValid = signatureNum === expectedSignature;
           console.log(`${isValid ? '✅' : '❌'} Mock signature validation result: ${isValid}`)
           return isValid;
         } catch (error) {
-          console.error(`❌ Failed to validate mock signature for service "${this.serviceName}":`, error);
+          console.error(`❌ Failed to validate mock signature for service "${serviceName}":`, error);
           return false;
         }
-        
+      
       case 'safe-signature':
         if (!authData || !authData.safeAddress || !authData.chainId) {
           console.error('Safe signature validation failed: missing Safe address or chain ID');
           return false;
         }
 
-        // Create SafeAuthService to validate the signature
-        const safeAuthService = new SafeAuthService({
-          safeAddress: authData.safeAddress,
-          chainId: authData.chainId
-          // owners will be fetched dynamically
-        });
+        try {
+          // Create SafeAuthService to validate the signature
+          const safeAuthService = new SafeAuthService({
+            safeAddress: authData.safeAddress,
+            chainId: authData.chainId
+            // owners will be fetched dynamically
+          });
 
-        return await safeAuthService.verifySignature(authData);
+          const isValid = await safeAuthService.verifySignature(authData);
+          
+          if (isValid) {
+            console.log(`✅ Safe signature validation passed for "${serviceName}": owner=${authData.ownerAddress}, safe=${authData.safeAddress}, chain=${authData.chainId}`)
+            return true
+          } else {
+            console.error(`❌ Safe signature validation failed for "${serviceName}"`)
+            return false
+          }
+        } catch (error) {
+          console.error(`❌ Failed to validate Safe signature for service "${serviceName}":`, error);
+          return false;
+        }
       
       default:
-        console.error('Unknown auth type:', authType);
+        console.error(`❌ Unknown auth type for service "${serviceName}": ${authType}`);
         return false;
     }
   }
