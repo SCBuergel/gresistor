@@ -1,7 +1,47 @@
 /**
+ * Abstract base class for encrypted data storage services
+ */
+export abstract class BaseStorageService {
+  /**
+   * Uploads data to storage and returns the hash
+   */
+  abstract upload(data: Uint8Array): Promise<string>;
+
+  /**
+   * Downloads data from storage by hash
+   */
+  abstract download(hash: string): Promise<Uint8Array>;
+
+  /**
+   * Gets metadata about stored data
+   */
+  abstract getMetadata(hash: string): Promise<{ size: number; timestamp: Date }>;
+
+  /**
+   * Lists all stored data hashes
+   */
+  abstract listHashes(): Promise<string[]>;
+
+  /**
+   * Clears all stored data
+   */
+  abstract clear(): Promise<void>;
+
+  /**
+   * Generates a hash for the data using SHA-256
+   */
+  protected async generateHash(data: Uint8Array): Promise<string> {
+    // Use Web Crypto API for hash generation
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+}
+
+/**
  * In-memory storage service for Node.js testing
  */
-export class InMemoryStorageService {
+export class InMemoryStorageService extends BaseStorageService {
   private storage = new Map<string, { data: Uint8Array; timestamp: Date; size: number }>();
 
   /**
@@ -31,13 +71,6 @@ export class InMemoryStorageService {
   }
 
   /**
-   * Checks if data exists at the given hash
-   */
-  async exists(hash: string): Promise<boolean> {
-    return this.storage.has(hash);
-  }
-
-  /**
    * Gets metadata about stored data
    */
   async getMetadata(hash: string): Promise<{ size: number; timestamp: Date }> {
@@ -49,16 +82,6 @@ export class InMemoryStorageService {
       size: item.size,
       timestamp: item.timestamp
     };
-  }
-
-  /**
-   * Generates a hash for the data
-   */
-  private async generateHash(data: Uint8Array): Promise<string> {
-    // Use Web Crypto API for hash generation
-    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
   }
 
   /**
@@ -76,7 +99,7 @@ export class InMemoryStorageService {
   }
 }
 
-export class BrowserStorageService {
+export class BrowserStorageService extends BaseStorageService {
   private dbName = 'ResilientBackupDB';
   private dbVersion = 1;
   private storeName = 'encryptedData';
@@ -151,22 +174,6 @@ export class BrowserStorageService {
   }
 
   /**
-   * Checks if data exists at the given hash
-   */
-  async exists(hash: string): Promise<boolean> {
-    const db = await this.getDB();
-    
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction([this.storeName], 'readonly');
-      const store = transaction.objectStore(this.storeName);
-      const request = store.get(hash);
-      
-      request.onsuccess = () => resolve(!!request.result);
-      request.onerror = () => reject(request.error);
-    });
-  }
-
-  /**
    * Gets metadata about stored data
    */
   async getMetadata(hash: string): Promise<{ size: number; timestamp: Date }> {
@@ -190,16 +197,6 @@ export class BrowserStorageService {
       
       request.onerror = () => reject(request.error);
     });
-  }
-
-  /**
-   * Generates a hash for the data (simplified implementation)
-   */
-  private async generateHash(data: Uint8Array): Promise<string> {
-    // Use Web Crypto API to generate a SHA-256 hash
-    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
   }
 
   /**
@@ -239,7 +236,7 @@ export class BrowserStorageService {
  * Simplified service for encrypted data storage
  */
 export class EncryptedDataStorageService {
-  private storage: InMemoryStorageService | BrowserStorageService;
+  private storage: BaseStorageService;
 
   constructor(config: { type: 'memory' | 'local-browser' } = { type: 'memory' }) {
     if (config.type === 'memory') {
@@ -270,13 +267,6 @@ export class EncryptedDataStorageService {
    */
   async retrieve(hash: string): Promise<Uint8Array> {
     return await this.storage.download(hash);
-  }
-
-  /**
-   * Check if data exists for given hash
-   */
-  async exists(hash: string): Promise<boolean> {
-    return await this.storage.exists(hash);
   }
 
   /**
