@@ -10,6 +10,7 @@ interface RestoreComponentProps {
   keyShardStorageBackend: KeyShardStorageBackend
   encryptedDataStorage: EncryptedDataStorage
   safeConfig: SafeConfig
+  userAddress: string
 }
 
 interface StoredBackup {
@@ -42,7 +43,7 @@ const CHAIN_OPTIONS = [
   { id: 1, name: 'Ethereum', rpcUrl: 'https://eth.drpc.org' }
 ]
 
-export default function RestoreComponent({ shamirConfig, keyShardStorageBackend, encryptedDataStorage, safeConfig }: RestoreComponentProps) {
+export default function RestoreComponent({ shamirConfig, keyShardStorageBackend, encryptedDataStorage, safeConfig, userAddress }: RestoreComponentProps) {
   // Hardcoded WalletConnect Project ID
   const walletConnectProjectId = '62626bd02bc0c91a73103509f9da4896'
   
@@ -181,7 +182,7 @@ export default function RestoreComponent({ shamirConfig, keyShardStorageBackend,
       const encryptedDataStorageService = new EncryptedDataStorageService(storageConfig)
       
       if ((encryptedDataStorageService as any).listHashes) {
-        const hashes = await (encryptedDataStorageService as any).listHashes()
+        const hashes = await (encryptedDataStorageService as any).listHashes(userAddress)
         const backups: StoredBackup[] = []
         
         for (const hash of hashes) {

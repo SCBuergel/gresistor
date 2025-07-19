@@ -10,6 +10,7 @@ interface BackupComponentProps {
   keyShardStorageBackend: KeyShardStorageBackend
   encryptedDataStorage: EncryptedDataStorage
   safeConfig: SafeConfig
+  userAddress: string
 }
 
 interface TestProfile {
@@ -27,7 +28,7 @@ interface ServiceInfo {
   authError?: string
 }
 
-export default function BackupComponent({ shamirConfig, keyShardStorageBackend, encryptedDataStorage, safeConfig }: BackupComponentProps) {
+export default function BackupComponent({ shamirConfig, keyShardStorageBackend, encryptedDataStorage, safeConfig, userAddress }: BackupComponentProps) {
   const [profileName, setProfileName] = useState('')
   const [profileAge, setProfileAge] = useState(28)
   const [isLoading, setIsLoading] = useState(false)
@@ -246,8 +247,8 @@ export default function BackupComponent({ shamirConfig, keyShardStorageBackend, 
       encryptedBlob.set(nonce, 4 + ciphertext.length)
       encryptedBlob.set(tag, 4 + ciphertext.length + nonce.length)
       
-      // Store encrypted blob
-      const blobHash = await encryptedDataStorageService.store(encryptedBlob)
+      // Store encrypted blob with user address
+      const blobHash = await encryptedDataStorageService.store(encryptedBlob, userAddress)
       
       // Split encryption key
       const keyShards = await shamirService.splitSecret(encryptionKey)
@@ -474,6 +475,7 @@ export default function BackupComponent({ shamirConfig, keyShardStorageBackend, 
       <div>
         <h2>Configuration</h2>
         <ul>
+          <li><b>User Address:</b> {userAddress}</li>
           <li><b>Threshold:</b> {shamirConfig.threshold} of {shamirConfig.totalShares} shares required</li>
           <li><b>Key Shard Storage:</b> {keyShardStorageBackend.type} {keyShardStorageBackend.endpoint && `(${keyShardStorageBackend.endpoint})`}</li>
           <li><b>Encrypted Data Storage:</b> {encryptedDataStorage.type} {encryptedDataStorage.endpoint && `(${encryptedDataStorage.endpoint})`}</li>

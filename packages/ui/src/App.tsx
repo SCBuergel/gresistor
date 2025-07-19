@@ -31,6 +31,7 @@ function App() {
   const [keyShardStorageBackend, setKeyShardStorageBackend] = useState<KeyShardStorageBackend>(DEFAULT_KEY_SHARD_STORAGE_BACKEND)
   const [encryptedDataStorage, setEncryptedDataStorage] = useState<EncryptedDataStorage>(DEFAULT_ENCRYPTED_DATA_STORAGE)
   const [safeConfig, setSafeConfig] = useState<SafeConfig>(DEFAULT_SAFE_CONFIG)
+  const [userAddress, setUserAddress] = useState<string>('123')
 
   useEffect(() => {
     const saved = localStorage.getItem('gresistor-config')
@@ -42,6 +43,7 @@ function App() {
         if (config.storageBackend) setKeyShardStorageBackend(config.storageBackend) // Legacy support
         if (config.encryptedDataStorage) setEncryptedDataStorage(config.encryptedDataStorage)
         if (config.safeConfig) setSafeConfig(config.safeConfig)
+        if (config.userAddress) setUserAddress(config.userAddress)
       } catch (error) {
         console.warn('Failed to load saved configuration:', error)
       }
@@ -53,10 +55,11 @@ function App() {
       shamirConfig,
       keyShardStorageBackend,
       encryptedDataStorage,
-      safeConfig
+      safeConfig,
+      userAddress
     }
     localStorage.setItem('gresistor-config', JSON.stringify(config))
-  }, [shamirConfig, keyShardStorageBackend, encryptedDataStorage, safeConfig])
+  }, [shamirConfig, keyShardStorageBackend, encryptedDataStorage, safeConfig, userAddress])
 
   const handleTabChange = (tab: Tab) => {
     setActiveTab(tab)
@@ -87,6 +90,7 @@ function App() {
           keyShardStorageBackend={keyShardStorageBackend}
           encryptedDataStorage={encryptedDataStorage}
           safeConfig={safeConfig}
+          userAddress={userAddress}
         />
       )}
       
@@ -96,6 +100,7 @@ function App() {
           keyShardStorageBackend={keyShardStorageBackend}
           encryptedDataStorage={encryptedDataStorage}
           safeConfig={safeConfig}
+          userAddress={userAddress}
         />
       )}
       
@@ -109,6 +114,8 @@ function App() {
           setEncryptedDataStorage={setEncryptedDataStorage}
           safeConfig={safeConfig}
           setSafeConfig={setSafeConfig}
+          userAddress={userAddress}
+          setUserAddress={setUserAddress}
         />
       )}
     </div>

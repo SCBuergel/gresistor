@@ -6,15 +6,17 @@ export interface ShardRequestData {
   signature: string
   message: EIP712Message
   publicKey: string
+  user?: string
 }
 
 export interface ShardStorageData {
   shardId: string
   encryptedShard: string
+  user?: string
 }
 
 export class ShardService {
-  private shards: Map<string, string> = new Map() // In-memory storage for demo
+  private shards: Map<string, { encryptedShard: string; user?: string; timestamp: Date }> = new Map() // In-memory storage for demo
   private safeAuth?: SafeAuthService
 
   constructor() {
@@ -41,8 +43,12 @@ export class ShardService {
    */
   async storeShard(data: ShardStorageData): Promise<void> {
     // Stub implementation - store in memory for demo
-    this.shards.set(data.shardId, data.encryptedShard)
-    console.log(`Stored shard ${data.shardId}`)
+    this.shards.set(data.shardId, {
+      encryptedShard: data.encryptedShard,
+      user: data.user,
+      timestamp: new Date()
+    })
+    console.log(`Stored shard ${data.shardId} for user ${data.user || 'unknown'}`)
   }
 
   /**
@@ -50,6 +56,19 @@ export class ShardService {
    */
   async shardExists(shardId: string): Promise<boolean> {
     return this.shards.has(shardId)
+  }
+
+  /**
+   * List shards for a specific user
+   */
+  async listShardsForUser(user: string): Promise<string[]> {
+    const userShards = []
+    for (const [shardId, shardData] of this.shards.entries()) {
+      if (shardData.user === user) {
+        userShards.push(shardId)
+      }
+    }
+    return userShards
   }
 
   /**

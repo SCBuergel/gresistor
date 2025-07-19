@@ -60,10 +60,13 @@ export class BackupService {
   /**
    * Backs up a profile with encryption and key splitting
    */
-  async backup(profile: BackupProfile, authorizationAddress?: string): Promise<BackupResult> {
+  async backup(profile: BackupProfile, authorizationAddress?: string, user?: string): Promise<BackupResult> {
     console.log(`🔧 Starting backup for profile: ${profile.metadata.name}`);
     if (authorizationAddress) {
       console.log(`🔐 Using authorization address: ${authorizationAddress}`);
+    }
+    if (user) {
+      console.log(`👤 Using user address: ${user}`);
     }
     
     try {
@@ -106,7 +109,7 @@ export class BackupService {
       encryptedBlob.set(tag, 4 + ciphertext.length + nonce.length);
       
       // Upload encrypted blob to storage
-      const encryptedBlobHash = await this.encryptedDataStorage.upload(encryptedBlob);
+      const encryptedBlobHash = await this.encryptedDataStorage.upload(encryptedBlob, user);
       console.log(`📦 Uploaded encrypted blob with hash: ${encryptedBlobHash}`);
       
       // Store key shards and collect service names
@@ -390,12 +393,12 @@ export class BackupService {
   }
 
   /**
-   * Lists available backups
+   * Lists available backups, optionally filtered by user
    */
-  async listBackups(): Promise<Array<{ hash: string; metadata: any }>> {
+  async listBackups(user?: string): Promise<Array<{ hash: string; metadata: any }>> {
     if (this.encryptedDataStorage instanceof BrowserStorageService || 
         this.encryptedDataStorage instanceof InMemoryStorageService) {
-      const hashes = await this.encryptedDataStorage.listHashes();
+      const hashes = await this.encryptedDataStorage.listHashes(user);
       return hashes.map(hash => ({ hash, metadata: {} }));
     }
     throw new Error('listBackups() not supported for this storage type');

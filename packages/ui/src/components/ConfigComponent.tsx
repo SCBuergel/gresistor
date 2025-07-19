@@ -51,6 +51,8 @@ interface ConfigComponentProps {
   setEncryptedDataStorage: (storage: EncryptedDataStorage) => void
   safeConfig: SafeConfig
   setSafeConfig: (config: SafeConfig) => void
+  userAddress: string
+  setUserAddress: (address: string) => void
 }
 
 export default function ConfigComponent({
@@ -61,7 +63,9 @@ export default function ConfigComponent({
   encryptedDataStorage,
   setEncryptedDataStorage,
   safeConfig,
-  setSafeConfig
+  setSafeConfig,
+  userAddress,
+  setUserAddress
 }: ConfigComponentProps) {
   const [keyShareServices, setKeyShareServices] = useState<KeyShareService[]>([])
   const [isLoadingServices, setIsLoadingServices] = useState(false)
@@ -197,6 +201,7 @@ export default function ConfigComponent({
     setKeyShardStorageBackend(keyShardStorageBackend)
     setEncryptedDataStorage(encryptedDataStorage)
     setSafeConfig(safeConfig)
+    setUserAddress(userAddress)
     setStatus({ type: 'success', message: 'Configuration applied successfully' })
   }
 
@@ -460,7 +465,26 @@ export default function ConfigComponent({
         )}
       </div>
 
+      <hr />
 
+      <div>
+        <h1>User Configuration</h1>
+        <p>Configure the user address for backup identification</p>
+        
+        <div>
+          <h2>User Address</h2>
+          <input
+            type="text"
+            value={userAddress}
+            onChange={(e) => setUserAddress(e.target.value)}
+            placeholder="Enter user address"
+            style={{ width: '100%' }}
+          />
+          <p><small>This address will be used to identify and filter your backups</small></p>
+        </div>
+      </div>
+
+      <hr />
 
       <div>
         <h2>Apply Configuration</h2>
