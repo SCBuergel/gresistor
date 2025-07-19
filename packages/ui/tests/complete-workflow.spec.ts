@@ -185,6 +185,265 @@ async function createBackup(localAppTab: any, params: BackupParams) {
   console.log('✅ Backup created successfully');
 }
 
+// Backup restore parameters interface
+interface RestoreServiceAuth {
+  serviceName: string;
+  authType: 'no-auth' | 'mock-signature-2x' | 'safe-signature';
+  ownerAddress: string;
+  signature?: string; // For mock-signature-2x services
+  safeAddress?: string; // For safe-signature services
+  chainId?: number; // For safe-signature services
+}
+
+interface RestoreShardSelection {
+  serviceName: string;
+  shardIndices: number[]; // Which shard indices to select from this service
+}
+
+interface RestoreParams {
+  backupIndex: number; // Which backup radio button (0, 1, 2, ...)
+  expectedProfileName: string;
+  expectedProfileAge: number;
+  serviceAuthentications: RestoreServiceAuth[];
+  shardSelections: RestoreShardSelection[];
+}
+
+/**
+ * Parametrized function to restore a backup with specified services and configuration
+ */
+async function restoreBackup(localAppTab: any, params: RestoreParams) {
+  const {
+    backupIndex,
+    expectedProfileName,
+    expectedProfileAge,
+    serviceAuthentications,
+    shardSelections
+  } = params;
+  
+  console.log('🔄 Restoring backup with parameters:', params);
+  
+  // Navigate to restore tab
+  const restoreTabBtn = localAppTab.locator('nav button', { hasText: 'Restore' });
+  if (!(await restoreTabBtn.isVisible({ timeout: DEFAULT_TIMEOUT }))) {
+    throw new Error('Restore tab button not found');
+  }
+  await restoreTabBtn.click();
+  await localAppTab.waitForTimeout(UI_INTERACTION_DELAY);
+  console.log('✓ Navigated to Restore tab');
+  
+  // Wait for backups to load
+  await localAppTab.waitForTimeout(UI_INTERACTION_DELAY);
+  
+  // Select the specified backup by index
+  console.log(`📋 Selecting backup at index ${backupIndex}...`);
+  const backupRadios = localAppTab.locator('input[type="radio"][name="backup"]');
+  const backupCount = await backupRadios.count();
+  console.log(`Found ${backupCount} backups`);
+  
+  if (backupCount === 0) {
+    await localAppTab.screenshot({ path: 'no-backups-debug.png' });
+    throw new Error(`No backups found in restore list - check no-backups-debug.png`);
+  }
+  
+  if (backupIndex >= backupCount) {
+    throw new Error(`Backup index ${backupIndex} is out of range (found ${backupCount} backups)`);
+  }
+  
+  const selectedBackupRadio = backupRadios.nth(backupIndex);
+  await selectedBackupRadio.click();
+  console.log(`✓ Selected backup at index ${backupIndex}`);
+  
+  // Wait for services to load
+  await localAppTab.waitForTimeout(UI_INTERACTION_DELAY);
+  
+  // Authenticate with each specified service
+  for (const serviceAuth of serviceAuthentications) {
+    console.log(`🔑 Authenticating service: ${serviceAuth.serviceName} (${serviceAuth.authType})`);
+    
+    if (serviceAuth.authType === 'no-auth') {
+      // Set no-auth owner address
+      const noAuthOwnerInput = localAppTab.locator('[data-testid="no-auth-owner-address"]');
+      if (await noAuthOwnerInput.isVisible({ timeout: DEFAULT_TIMEOUT })) {
+        await noAuthOwnerInput.clear();
+        await noAuthOwnerInput.fill(serviceAuth.ownerAddress);
+        console.log(`✓ Set no-auth owner address to: ${serviceAuth.ownerAddress}`);
+      }
+      
+      // Click authenticate button
+      const authenticateBtn = localAppTab.locator(`[data-testid="${serviceAuth.serviceName.toLowerCase().replace(/\s+/g, '-')}-authenticate-button"]`);
+      if (await authenticateBtn.isVisible({ timeout: DEFAULT_TIMEOUT })) {
+        await authenticateBtn.click();
+        console.log(`✓ Authenticated no-auth service: ${serviceAuth.serviceName}`);
+      } else {
+        throw new Error(`Authenticate button not found for service: ${serviceAuth.serviceName}`);
+      }
+      
+    } else if (serviceAuth.authType === 'mock-signature-2x') {
+      // Set mock-auth owner address
+      const mockAuthOwnerInput = localAppTab.locator('[data-testid="mock-auth-owner-address"]');
+      if (await mockAuthOwnerInput.isVisible({ timeout: DEFAULT_TIMEOUT })) {
+        await mockAuthOwnerInput.clear();
+        await mockAuthOwnerInput.fill(serviceAuth.ownerAddress);
+        console.log(`✓ Set mock-auth owner address to: ${serviceAuth.ownerAddress}`);
+      }
+      
+      // Set mock-auth signature
+      if (serviceAuth.signature) {
+        const mockAuthSignatureInput = localAppTab.locator('[data-testid="mock-auth-signature"]');
+        if (await mockAuthSignatureInput.isVisible({ timeout: DEFAULT_TIMEOUT })) {
+          await mockAuthSignatureInput.clear();
+          await mockAuthSignatureInput.fill(serviceAuth.signature);
+          console.log(`✓ Set mock-auth signature to: ${serviceAuth.signature}`);
+        }
+      }
+      
+      // Click authenticate button
+      const authenticateBtn = localAppTab.locator(`[data-testid="${serviceAuth.serviceName.toLowerCase().replace(/\s+/g, '-')}-authenticate-button"]`);
+      if (await authenticateBtn.isVisible({ timeout: DEFAULT_TIMEOUT })) {
+        await authenticateBtn.click();
+        console.log(`✓ Authenticated mock-signature service: ${serviceAuth.serviceName}`);
+      } else {
+        throw new Error(`Authenticate button not found for service: ${serviceAuth.serviceName}`);
+      }
+      
+    } else if (serviceAuth.authType === 'safe-signature') {
+      // Set safe-auth owner address
+      const safeAuthOwnerInput = localAppTab.locator('[data-testid="safe-auth-owner-address"]');
+      if (await safeAuthOwnerInput.isVisible({ timeout: DEFAULT_TIMEOUT })) {
+        await safeAuthOwnerInput.clear();
+        await safeAuthOwnerInput.fill(serviceAuth.safeAddress || serviceAuth.ownerAddress);
+        console.log(`✓ Set safe-auth owner address to: ${serviceAuth.safeAddress || serviceAuth.ownerAddress}`);
+      }
+      
+      // Click authenticate button (this will trigger WalletConnect flow)
+      const authenticateBtn = localAppTab.locator(`[data-testid="${serviceAuth.serviceName.toLowerCase().replace(/\s+/g, '-')}-authenticate-button"]`);
+      if (await authenticateBtn.isVisible({ timeout: DEFAULT_TIMEOUT })) {
+        await authenticateBtn.click();
+        console.log(`✓ Started safe-signature authentication for: ${serviceAuth.serviceName}`);
+        console.log('⚠️ Note: Safe signature authentication requires manual WalletConnect and MetaMask interaction');
+      } else {
+        throw new Error(`Authenticate button not found for service: ${serviceAuth.serviceName}`);
+      }
+    }
+    
+    await localAppTab.waitForTimeout(UI_INTERACTION_DELAY);
+  }
+  
+  // Wait for shards to load
+  console.log('🔍 Waiting for shards to load...');
+  await localAppTab.waitForTimeout(UI_INTERACTION_DELAY);
+  
+  // Select specified shards
+  console.log('🎯 Selecting specified shards...');
+  let totalShardsSelected = 0;
+  
+  for (const shardSelection of shardSelections) {
+    console.log(`Selecting shards for service: ${shardSelection.serviceName}, indices: ${shardSelection.shardIndices}`);
+    
+    for (const shardIndex of shardSelection.shardIndices) {
+      // Look for checkboxes in the specific service section
+      const allCheckboxes = localAppTab.locator('input[type="checkbox"]');
+      const checkboxCount = await allCheckboxes.count();
+      
+      // Find the right checkbox for this service and shard index
+      // The UI structure has checkboxes for each shard, we need to find the right one
+      let found = false;
+      for (let i = 0; i < checkboxCount; i++) {
+        const checkbox = allCheckboxes.nth(i);
+        if (await checkbox.isVisible({ timeout: 2000 })) {
+          // Check if this checkbox is in the right service context
+          const parentContainer = checkbox.locator('xpath=../..');
+          const parentText = await parentContainer.textContent();
+          
+          if (parentText?.includes(shardSelection.serviceName) && 
+              parentText?.includes(`Shard ${shardIndex + 1}`)) {
+            await checkbox.click();
+            console.log(`✓ Selected shard ${shardIndex + 1} from service: ${shardSelection.serviceName}`);
+            totalShardsSelected++;
+            found = true;
+            break;
+          }
+        }
+      }
+      
+      if (!found) {
+        // Fallback: just click checkboxes in order (less precise but works for simple cases)
+        console.log(`⚠️ Could not find specific shard, using fallback selection`);
+        if (totalShardsSelected < checkboxCount) {
+          const checkbox = allCheckboxes.nth(totalShardsSelected);
+          if (await checkbox.isVisible({ timeout: 2000 })) {
+            await checkbox.click();
+            console.log(`✓ Selected checkbox ${totalShardsSelected + 1} (fallback)`);
+            totalShardsSelected++;
+          }
+        }
+      }
+      
+      await localAppTab.waitForTimeout(UI_INTERACTION_DELAY / 2);
+    }
+  }
+  
+  console.log(`📊 Total shards selected: ${totalShardsSelected}`);
+  
+  if (totalShardsSelected === 0) {
+    throw new Error('No shard checkboxes found or selected - cannot proceed with restore');
+  }
+  
+  // Click Restore button
+  console.log('🔄 Restoring backup...');
+  const restoreBtn = localAppTab.locator('button', { hasText: 'Restore' }).last();
+  if (!(await restoreBtn.isVisible({ timeout: DEFAULT_TIMEOUT }))) {
+    throw new Error('Restore button not found');
+  }
+  
+  // Check if Restore button is enabled
+  if (!(await restoreBtn.isEnabled({ timeout: DEFAULT_TIMEOUT }))) {
+    throw new Error('Restore button is not enabled - required services may not be selected properly');
+  }
+  
+  await restoreBtn.click();
+  console.log('✓ Restore button clicked');
+  
+  // Verify restore was successful
+  console.log('🔍 Verifying restore completion...');
+  
+  try {
+    // Wait for restored profile to appear
+    await localAppTab.waitForSelector('text=Age:', { timeout: DEFAULT_TIMEOUT });
+    console.log('✓ Restore completion confirmed - found restored profile data');
+    
+    // Verify the expected profile data
+    // The structure is: <p><b>Name:</b> {name}</p> and <p><b>Age:</b> {age}</p>
+    const nameText = await localAppTab.locator('p:has(b:text("Name:"))').textContent();
+    if (nameText) {
+      // Extract the name part after "Name: "
+      const actualName = nameText.replace('Name:', '').trim();
+      if (actualName === expectedProfileName) {
+        console.log(`✓ Profile name verification passed: ${actualName}`);
+      } else {
+        console.log(`⚠️ Profile name mismatch: expected "${expectedProfileName}", got "${actualName}"`);
+      }
+    }
+    
+    const ageText = await localAppTab.locator('p:has(b:text("Age:"))').textContent();
+    if (ageText) {
+      // Extract the age part after "Age: "
+      const actualAge = ageText.replace('Age:', '').trim();
+      if (actualAge === expectedProfileAge.toString()) {
+        console.log(`✓ Profile age verification passed: ${actualAge}`);
+      } else {
+        console.log(`⚠️ Profile age mismatch: expected "${expectedProfileAge}", got "${actualAge}"`);
+      }
+    }
+    
+  } catch (e) {
+    await localAppTab.screenshot({ path: 'restore-verification-debug.png' });
+    throw new Error('Restore completion verification failed - check restore-verification-debug.png');
+  }
+  
+  console.log('✅ Backup restored successfully');
+}
+
 test.describe('MetaMask Connection to Safe Global', () => {
   let metamaskWallet;
   let appContext: BrowserContext;
@@ -1000,226 +1259,36 @@ test.describe('MetaMask Connection to Safe Global', () => {
     
     console.log('✓ Using existing local app tab');
     
-    // Navigate to restore tab
-    const restoreTabBtn = localAppTab.locator('nav button', { hasText: 'Restore' });
-    if (!(await restoreTabBtn.isVisible({ timeout: 5000 }))) {
-      throw new Error('Restore tab button not found');
-    }
-    await restoreTabBtn.click();
-    console.log('✓ Navigated to Restore tab');
-    
-    // Wait for backups to load and select the backup with 3 mock signature services
-    console.log('📋 Waiting for backups to load and selecting backup with 3 mock signature services...');
-    
-    // Wait for backup list to load with retries
-    let backupRadios;
-    let backupCount = 0;
-    await localAppTab.waitForTimeout(UI_INTERACTION_DELAY); // Wait between attempts
-    backupRadios = localAppTab.locator('input[type="radio"][name="backup"]');
-    backupCount = await backupRadios.count();
-    console.log(`Found ${backupCount} backups`);
-    
-    if (backupCount === 0) {
-      // Take a screenshot for debugging
-      await localAppTab.screenshot({ path: 'no-backups-debug.png' });
-      throw new Error(`No backups found in restore list - check no-backups-debug.png`);
-    }
-    
-    console.log(`✓ Found ${backupCount} backups`);
-    
-    // Select the first backup (top radio button - should have matching timestamps)
-    const firstBackupRadio = backupRadios.first();
-    if (!(await firstBackupRadio.isVisible({ timeout: 5000 }))) {
-      throw new Error('First backup radio button not found');
-    }
-    await firstBackupRadio.click();
-    console.log('✓ Selected first backup with 3 mock signature services');
-    
-    // Fill mock auth owner address field and select Mock Auth Service (address 2, signature 4)
-    console.log('🔑 Selecting Mock Auth Service with address 2, signature 4...');
-    const mockAuthOwnerInput = localAppTab.locator('[data-testid="mock-auth-owner-address"]');
-    if (!(await mockAuthOwnerInput.isVisible({ timeout: DEFAULT_TIMEOUT }))) {
-      throw new Error('Mock auth owner address input not found');
-    }
-    await mockAuthOwnerInput.fill('2'); // Address 2
-    
-    const mockAuthSignatureInput = localAppTab.locator('[data-testid="mock-auth-signature"], input[placeholder*="signature"]').first();
-    if (await mockAuthSignatureInput.isVisible({ timeout: 2000 })) {
-      await mockAuthSignatureInput.fill('4'); // Signature 4
-    }
-    
-    const mockAuthSelectBtn = localAppTab.locator('[data-testid="mock-auth-service-authenticate-button"]');
-    if (!(await mockAuthSelectBtn.isVisible({ timeout: DEFAULT_TIMEOUT }))) {
-      throw new Error('Mock Auth Service authenticate button not found');
-    }
-    await mockAuthSelectBtn.click();
-    console.log('✓ Mock Auth Service selected with address 2, signature 4');
-    
-    // Update fields and select Mock Auth Service 2 (address 3, signature 6)
-    console.log('🔑 Selecting Mock Auth Service 2 with address 3, signature 6...');
-    await mockAuthOwnerInput.fill('3'); // Address 3
-    
-    if (await mockAuthSignatureInput.isVisible({ timeout: 2000 })) {
-      await mockAuthSignatureInput.fill('6'); // Signature 6
-    }
-    
-    const mockAuth2SelectBtn = localAppTab.locator('[data-testid="mock-auth-service-2-authenticate-button"]');
-    if (!(await mockAuth2SelectBtn.isVisible({ timeout: DEFAULT_TIMEOUT }))) {
-      throw new Error('Mock Auth Service 2 authenticate button not found');
-    }
-    await mockAuth2SelectBtn.click();
-    console.log('✓ Mock Auth Service 2 selected with address 3, signature 6');
-    
-    // Get the timestamp from the selected backup radio button for verification
-    console.log('📅 Getting backup timestamp for verification...');
-    
-    let backupLabelText: string | null = null;
-    let backupTimestamp: string | null = null;
-    
-    try {
-      // Try multiple approaches to find the backup label
-      const selectedBackupRadio = localAppTab.locator('input[type="radio"][name="backup"]:checked');
-      
-      // First, check if the radio button is actually selected
-      if (await selectedBackupRadio.isVisible({ timeout: 3000 })) {
-        console.log('✓ Found selected backup radio button');
-        
-        // Use the working associated label approach
-        const labelElement = localAppTab.locator('label').filter({ has: selectedBackupRadio });
-        if (await labelElement.isVisible({ timeout: 2000 })) {
-          console.log('✓ Found backup label');
-        } else {
-          throw new Error('Backup label not found');
+    // Use parametrized restoreBackup function
+    await restoreBackup(localAppTab, {
+      backupIndex: 0, // First backup (most recent - the one with 3 mock signature services)
+      expectedProfileName: 'Alice Johnson',
+      expectedProfileAge: 28,
+      serviceAuthentications: [
+        {
+          serviceName: 'Mock Auth Service',
+          authType: 'mock-signature-2x',
+          ownerAddress: '2',
+          signature: '4' // 2 * 2 = 4
+        },
+        {
+          serviceName: 'Mock Auth Service 2',
+          authType: 'mock-signature-2x',
+          ownerAddress: '3',
+          signature: '6' // 3 * 2 = 6
         }
-        
-        if (labelElement) {
-          backupLabelText = await labelElement.textContent({ timeout: 3000 });
-          console.log(`Backup label text: ${backupLabelText}`);
-          
-          // Extract timestamp from backup label (assuming format contains timestamp)
-          const backupTimestampMatch = backupLabelText?.match(/\d{1,2}\/\d{1,2}\/\d{4},\s*\d{1,2}:\d{2}:\d{2}\s*(AM|PM)/i);
-          backupTimestamp = backupTimestampMatch ? backupTimestampMatch[0] : null;
-          console.log(`Extracted backup timestamp: ${backupTimestamp}`);
-        } else {
-          console.log('⚠️ Could not find backup label element');
+      ],
+      shardSelections: [
+        {
+          serviceName: 'Mock Auth Service',
+          shardIndices: [0] // First shard from this service
+        },
+        {
+          serviceName: 'Mock Auth Service 2',
+          shardIndices: [0] // First shard from this service
         }
-      } else {
-        console.log('⚠️ Selected backup radio button not found');
-      }
-    } catch (error) {
-      console.log(`⚠️ Error getting backup timestamp: ${error.message}`);
-      // Continue with the test even if timestamp extraction fails
-    }
-    
-    // Wait for shards to load and click on shards from authenticated services
-    console.log('🔍 Waiting for shards to load...');
-    await localAppTab.waitForTimeout(UI_INTERACTION_DELAY);
-    
-    // Find and click shard checkboxes using the working generic approach
-    console.log('🎯 Finding and clicking shard checkboxes...');
-    const allCheckboxes = localAppTab.locator('input[type="checkbox"]');
-    const checkboxCount = await allCheckboxes.count();
-    console.log(`Found ${checkboxCount} checkboxes on the page`);
-    
-    let shardsClicked = 0;
-    const shardTimestamps: string[] = [];
-    
-    // Click checkboxes and extract their timestamps
-    for (let i = 0; i < Math.min(checkboxCount, 5); i++) {
-      const checkbox = allCheckboxes.nth(i);
-      if (await checkbox.isVisible({ timeout: 1000 })) {
-        // Check if this checkbox is in a shard context
-        const parentContainer = checkbox.locator('xpath=../..');
-        const parentText = await parentContainer.textContent();
-        
-        if (parentText?.includes('Shard') || parentText?.includes('Mock Auth') || parentText?.includes('Created:')) {
-          await checkbox.click();
-          console.log(`✓ Clicked shard checkbox ${i + 1}`);
-          shardsClicked++;
-          
-          // Extract timestamp from this shard
-          try {
-            const timestampElement = parentContainer.locator('p:has-text("Created:")');
-            if (await timestampElement.isVisible({ timeout: 2000 })) {
-              const timestampText = await timestampElement.textContent();
-              console.log(`Shard ${i + 1} timestamp: ${timestampText}`);
-              
-              // Extract just the timestamp part (remove "Created: " prefix)
-              const timestampMatch = timestampText?.match(/(\d{1,2}\/\d{1,2}\/\d{4},\s*\d{1,2}:\d{2}:\d{2}\s*(AM|PM))/i);
-              if (timestampMatch) {
-                const shardTimestamp = timestampMatch[0];
-                shardTimestamps.push(shardTimestamp);
-                
-                // Verify timestamp matches backup timestamp
-                if (backupTimestamp && shardTimestamp === backupTimestamp) {
-                  console.log(`✓ Timestamp verification PASSED for shard ${i + 1}`);
-                  console.log(`  Backup: ${backupTimestamp}`);
-                  console.log(`  Shard:  ${shardTimestamp}`);
-                } else {
-                  throw new Error(`Timestamp verification FAILED for shard ${i + 1}: expected '${backupTimestamp}' but found '${shardTimestamp}'`);
-                }
-              } else {
-                throw new Error(`Could not extract timestamp from shard ${i + 1}: ${timestampText}`);
-              }
-            } else {
-              throw new Error(`No timestamp found for shard ${i + 1} - cannot verify backup integrity`);
-            }
-          } catch (error) {
-            throw new Error(`Error extracting timestamp for shard ${i + 1}: ${error.message}`);
-          }
-          
-          if (shardsClicked >= 2) break; // We need at least 2 shards
-        }
-      }
-    }
-    
-    console.log(`📊 Total shards clicked: ${shardsClicked}`);
-    console.log(`📅 Shard timestamps extracted: ${shardTimestamps.length}`);
-    
-    // Summary of timestamp verification
-    if (backupTimestamp && shardTimestamps.length > 0) {
-      const matchingTimestamps = shardTimestamps.filter(ts => ts === backupTimestamp);
-      console.log(`📅 Timestamp verification summary:`);
-      console.log(`  Backup timestamp: ${backupTimestamp}`);
-      console.log(`  Matching shards: ${matchingTimestamps.length}/${shardTimestamps.length}`);
-      
-      if (matchingTimestamps.length === shardTimestamps.length) {
-        console.log(`✓ All shard timestamps match the backup timestamp!`);
-      } else {
-        console.log(`⚠️ Some shard timestamps do not match the backup timestamp`);
-      }
-    }
-    
-    if (shardsClicked === 0) {
-      console.log('⚠️ No shard checkboxes found or clicked - this may cause restore to fail');
-    }
-    
-    // Find and click Restore button
-    console.log('🔄 Restoring backup...');
-    const restoreBtn = localAppTab.locator('button', { hasText: 'Restore' }).last();
-    if (!(await restoreBtn.isVisible({ timeout: 5000 }))) {
-      throw new Error('Restore button not found');
-    }
-    
-    // Check if Restore button is enabled
-    if (!(await restoreBtn.isEnabled({ timeout: 5000 }))) {
-      throw new Error('Restore button is not enabled - required services may not be selected properly');
-    }
-    
-    await restoreBtn.click();
-    console.log('✓ Restore button clicked');
-    
-    // Verify restore was successful using the working approach
-    console.log('🔍 Verifying restore completion...');
-    
-    try {
-      // Use the working selector from debug output: text=Age:
-      await localAppTab.waitForSelector('text=Age:', { timeout: DEFAULT_TIMEOUT });
-      console.log('✓ Restore completion confirmed - found restored profile data');
-    } catch (e) {
-      await localAppTab.screenshot({ path: 'restore-debug.png' });
-      throw new Error('Restore completion verification failed - check restore-debug.png');
-    }
+      ]
+    });
     
     if (PAUSE) {
       console.log('🔍 Debug mode: Pausing for restore inspection');
@@ -1234,6 +1303,11 @@ test.describe('MetaMask Connection to Safe Global', () => {
     console.log('🔄 Restoring the other backup using No Auth and Mock Auth services...');
     
     // Reuse the existing localhost:3000 tab
+    if (!appContext) {
+      console.log('⚠️ App context not available, skipping test');
+      return;
+    }
+    
     const pages = await appContext.pages();
     let localAppTab: any = null;
     
@@ -1250,6 +1324,8 @@ test.describe('MetaMask Connection to Safe Global', () => {
       throw new Error('localhost:3000 tab not found');
     }
     
+    console.log('✓ Using existing local app tab');
+    
     // Reset UI by clicking Backup tab first, then Restore tab
     console.log('🔄 Resetting UI by clicking Backup tab...');
     const backupTabBtn = localAppTab.locator('nav button', { hasText: 'Backup' });
@@ -1260,180 +1336,42 @@ test.describe('MetaMask Connection to Safe Global', () => {
     await localAppTab.waitForTimeout(UI_INTERACTION_DELAY);
     console.log('✓ Clicked Backup tab');
     
-    // Navigate to Restore tab
-    console.log('📂 Navigating to Restore tab...');
-    const restoreTabBtn = localAppTab.locator('nav button', { hasText: 'Restore' });
-    if (!(await restoreTabBtn.isVisible({ timeout: DEFAULT_TIMEOUT }))) {
-      throw new Error('Restore tab button not found');
-    }
-    await restoreTabBtn.click();
-    await localAppTab.waitForTimeout(UI_INTERACTION_DELAY);
-    console.log('✓ Navigated to Restore tab');
-    
-    // Select the second backup directly
-    console.log('📋 Selecting second backup...');
-    await localAppTab.waitForTimeout(UI_INTERACTION_DELAY); // Wait for backups to load
-    
-    const secondBackupRadio = localAppTab.locator('input[type="radio"][name="backup"]').nth(1);
-    await secondBackupRadio.click();
-    console.log('✓ Selected second backup');
-    
-    // Select No Auth Service with address "1"
-    console.log('🔑 Selecting No Auth Service with address "1"...');
-    const noAuthOwnerInput = localAppTab.locator('[data-testid="no-auth-owner-address"]');
-    if (!(await noAuthOwnerInput.isVisible({ timeout: DEFAULT_TIMEOUT }))) {
-      throw new Error('No Auth Service owner input not found');
-    }
-    await noAuthOwnerInput.fill('1'); // Address 1
-    
-    const noAuthSelectBtn = localAppTab.locator('[data-testid="no-auth-service-authenticate-button"]');
-    if (!(await noAuthSelectBtn.isVisible({ timeout: DEFAULT_TIMEOUT }))) {
-      throw new Error('No Auth Service authenticate button not found');
-    }
-    await noAuthSelectBtn.click();
-    console.log('✓ No Auth Service selected with address "1"');
-    
-    // Select Mock Auth Service with address "123" and signature "246"
-    console.log('🔑 Selecting Mock Auth Service with address "123", signature "246"...');
-    const mockAuthOwnerInput = localAppTab.locator('[data-testid="mock-auth-owner-address"]');
-    if (!(await mockAuthOwnerInput.isVisible({ timeout: DEFAULT_TIMEOUT }))) {
-      throw new Error('Mock Auth Service owner input not found');
-    }
-    await mockAuthOwnerInput.fill('123'); // Address 123
-    
-    const mockAuthSignatureInput = localAppTab.locator('[data-testid="mock-auth-signature"], input[placeholder*="signature"]').first();
-    if (await mockAuthSignatureInput.isVisible({ timeout: 2000 })) {
-      await mockAuthSignatureInput.fill('246'); // Signature 246
-    }
-    
-    // Wait a moment for the form to update
-    await localAppTab.waitForTimeout(UI_INTERACTION_DELAY);
-    
-    // Use the correct data-testid for the Mock Auth Service (not 2 or 3)
-    const mockAuthSelectBtn = localAppTab.locator('[data-testid="mock-auth-service-authenticate-button"]');
-    if (!(await mockAuthSelectBtn.isVisible({ timeout: DEFAULT_TIMEOUT }))) {
-      throw new Error('Mock Auth Service authenticate button not found');
-    }
-    await mockAuthSelectBtn.click();
-    console.log('✓ Mock Auth Service selected with address "123", signature "246"');
-
-    await localAppTab.waitForTimeout(UI_INTERACTION_DELAY);
-
-    // Select required shards (at least 2)
-    console.log('🔍 Selecting required shards...');
-    const shardCheckboxes = localAppTab.locator('input[type="checkbox"]');
-    const checkboxCount = await shardCheckboxes.count();
-    console.log(`📊 Found ${checkboxCount} shard checkboxes`);
-    
-    await localAppTab.waitForTimeout(UI_INTERACTION_DELAY);
-    let shardsClicked = 0;
-    for (let i = 0; i < checkboxCount && shardsClicked < 2; i++) {
-      const checkbox = shardCheckboxes.nth(i);
-      if (await checkbox.isVisible({ timeout: 2000 })) {
-        const isChecked = await checkbox.isChecked();
-        if (!isChecked) {
-          await checkbox.click();
-          shardsClicked++;
-          console.log(`✓ Clicked shard checkbox ${i + 1}`);
-          await localAppTab.waitForTimeout(UI_INTERACTION_DELAY);
-        } else {
-          shardsClicked++;
-          console.log(`✓ Shard checkbox ${i + 1} already selected`);
+    // Use parametrized restoreBackup function
+    await restoreBackup(localAppTab, {
+      backupIndex: 1, // Second backup (the one created in test 04 with mixed services)
+      expectedProfileName: 'Ali John',
+      expectedProfileAge: 14,
+      serviceAuthentications: [
+        {
+          serviceName: 'No Auth Service',
+          authType: 'no-auth',
+          ownerAddress: '1'
+        },
+        {
+          serviceName: 'Mock Auth Service',
+          authType: 'mock-signature-2x',
+          ownerAddress: '123',
+          signature: '246' // 123 * 2 = 246
         }
-        if (shardsClicked >= 2) break;
-      }
-    }
-    
-    console.log(`📊 Total shards selected: ${shardsClicked}`);
-    
-    if (shardsClicked === 0) {
-      throw new Error('No shard checkboxes found or clicked - cannot proceed with restore');
-    }
-    
-    // Verify exactly 2 checkboxes are actually checked on the page
-    console.log('🔍 Verifying checkbox states...');
-    const checkedBoxes = localAppTab.locator('input[type="checkbox"]:checked');
-    const actualCheckedCount = await checkedBoxes.count();
-    console.log(`📊 Actually checked checkboxes on page: ${actualCheckedCount}`);
-    
-    if (actualCheckedCount !== 2) {
-      console.log('❌ Expected exactly 2 checkboxes to be checked, but found:', actualCheckedCount);
-      
-      // Take comprehensive screenshots for debugging
-      console.log('📸 Taking screenshots for debugging...');
-      
-      // Scroll to top first
-      await localAppTab.evaluate(() => window.scrollTo(0, 0));
-      await localAppTab.waitForTimeout(500);
-      await localAppTab.screenshot({ path: 'test-results/checkbox-error-top.png', fullPage: false });
-      
-      // Scroll to middle
-      await localAppTab.evaluate(() => window.scrollTo(0, document.body.scrollHeight / 2));
-      await localAppTab.waitForTimeout(500);
-      await localAppTab.screenshot({ path: 'test-results/checkbox-error-middle.png', fullPage: false });
-      
-      // Scroll to bottom
-      await localAppTab.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-      await localAppTab.waitForTimeout(500);
-      await localAppTab.screenshot({ path: 'test-results/checkbox-error-bottom.png', fullPage: false });
-      
-      // Take a full page screenshot
-      await localAppTab.screenshot({ path: 'test-results/checkbox-error-fullpage.png', fullPage: true });
-      
-      console.log('📸 Screenshots saved to test-results/ folder');
-      
-      // Log details of all checkboxes for debugging
-      const allCheckboxes = localAppTab.locator('input[type="checkbox"]');
-      const totalCheckboxes = await allCheckboxes.count();
-      console.log(`📊 Total checkboxes found: ${totalCheckboxes}`);
-      
-      for (let i = 0; i < totalCheckboxes; i++) {
-        const checkbox = allCheckboxes.nth(i);
-        const isChecked = await checkbox.isChecked();
-        const isVisible = await checkbox.isVisible();
-        console.log(`  Checkbox ${i + 1}: checked=${isChecked}, visible=${isVisible}`);
-      }
-      
-      throw new Error(`Expected exactly 2 checkboxes to be checked, but found ${actualCheckedCount}`);
-    }
-    
-    console.log('✅ Verified: exactly 2 checkboxes are checked');
-    
-    await localAppTab.waitForTimeout(UI_INTERACTION_DELAY);
-
-    // Find and click Restore button
-    console.log('🔄 Restoring backup...');
-    const restoreBtn = localAppTab.locator('button', { hasText: 'Restore' }).last();
-    if (!(await restoreBtn.isVisible({ timeout: 5000 }))) {
-      throw new Error('Restore button not found');
-    }
-    
-    // Check if Restore button is enabled
-    if (!(await restoreBtn.isEnabled({ timeout: 5000 }))) {
-      throw new Error('Restore button is not enabled - required services may not be selected properly');
-    }
-    
-    await restoreBtn.click();
-    console.log('✓ Restore button clicked');
-    
-    // Verify restore was successful
-    console.log('🔍 Verifying restore completion...');
-    
-    try {
-      // Use the working selector: text=Age:
-      await localAppTab.waitForSelector('text=Age:', { timeout: DEFAULT_TIMEOUT });
-      console.log('✓ Restore completion confirmed - found restored profile data');
-    } catch (e) {
-      await localAppTab.screenshot({ path: 'restore-other-backup-debug.png' });
-      throw new Error('Restore completion verification failed - check restore-other-backup-debug.png');
-    }
+      ],
+      shardSelections: [
+        {
+          serviceName: 'No Auth Service',
+          shardIndices: [0] // First shard from this service
+        },
+        {
+          serviceName: 'Mock Auth Service',
+          shardIndices: [0] // First shard from this service
+        }
+      ]
+    });
     
     if (PAUSE) {
       console.log('🔍 Debug mode: Pausing for restore inspection');
       await localAppTab.pause();
     }
     
-    console.log('✅ Other backup restored successfully using No Auth Service (address 1) and Mock Auth Service (address 123, signature 2)');
+    console.log('✅ Other backup restored successfully using No Auth Service (address 1) and Mock Auth Service (address 123, signature 246)');
   });
 
   test('09 - Navigate to Settings and restore second backup with Safe auth service', async () => {
